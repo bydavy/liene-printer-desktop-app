@@ -1,14 +1,17 @@
-# Liene N200 Pro
+# Liene Printer Desktop App
 
 [![CI](https://github.com/bydavy/liene-printer-desktop-app/actions/workflows/ci.yml/badge.svg)](https://github.com/bydavy/liene-printer-desktop-app/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/bydavy/liene-printer-desktop-app?display_name=tag)](https://github.com/bydavy/liene-printer-desktop-app/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-An unofficial, open-source **cross-platform desktop app and CLI** for the
-**Liene Pearl N200 Pro** (DMP130) dye-sublimation photo printer, written in
-Rust. It talks to the printer directly over Bluetooth Classic SPP — no vendor
-app required. macOS is hardware-tested; Linux and Windows are implemented but
-untested.
+An unofficial, open-source **cross-platform desktop app and CLI for the
+Liene/Hannto photo-printer family**, written in Rust. It talks to the printer
+directly over Bluetooth Classic SPP — no vendor app required.
+
+Only the **Liene Pearl N200 Pro (DMP130)** has been hardware-tested. Related
+Liene/Hannto models use the same protocol family and are implemented, but are
+**untested** and may need model-specific media or job settings. macOS is the
+only hardware-tested platform; Linux and Windows are implemented but untested.
 
 ![Editor](docs/editor.png)
 
@@ -28,6 +31,26 @@ untested.
 | Linux x86_64 | **Untested** — BlueZ/RFCOMM implementation, CI build, help wanted |
 | Windows 10/11 x86_64 | **Untested** — WinRT/RFCOMM implementation, CI build, help wanted |
 | Web/WASM (browser) | **Not possible to print** — [why](docs/WASM.md) |
+
+## Supported printers
+
+The app targets the Hannto/Liene photo-printer family. The **Pearl N200 Pro is
+the only model I have been able to test**; the other models are recognized from
+the vendor app's capability table and share the protocol layer, but their
+status is **untested**.
+
+| Model | Internal name | PID | Status |
+| --- | --- | --- | --- |
+| Liene Pearl N200 Pro | `cumin` | 3015 | **Tested** |
+| Liene PixCut S1 | `perilla` | 3101 | Untested; help wanted |
+| Liene Amber M110/M210 | `laurel` | 3007 | Untested; help wanted |
+| Liene Photo Printer | `fennel` | 3005 | Untested; help wanted |
+| Portable Photo Printer | `kiwi` | 1021 | Untested; help wanted |
+
+Other Hannto/Liene models may share the protocol. The macOS app bundle and
+release filenames are still named `Liene N200 Pro` because that is the tested
+model; the code is not limited to it. Testers with any of these printers are
+very welcome — see below.
 
 ## WASM / browser
 
@@ -49,25 +72,16 @@ local-bridge or BLE-GATT routes.
   devices, pair, jobs, resume, cancel, raw protocol probes.
 - **Documented protocol**: [docs/PROTOCOL.md](docs/PROTOCOL.md) covers frames,
   checksums, JSON-RPC methods, media constants, and the RFCOMM channel.
-- **Hardware-verified** on an N200 Pro (model DMP130, firmware 1.0.6_1040).
+- **Hardware-verified** on the N200 Pro (model DMP130, firmware 1.0.6_1040);
+  the shared protocol targets related Liene/Hannto models, but they are
+  untested.
 
 ## Help wanted: testers and more printers
 
 **I'm looking for people with different Liene/Hannto printers to help extend
-support.** The N200 Pro (DMP130) is the only model I can test; the protocol may
-work on related models, but that is unverified.
-
-Known models from the vendor app's capability table:
-
-| Model | Internal name | PID | Status |
-| --- | --- | --- | --- |
-| Liene Pearl N200 Pro | `cumin` | 3015 | **Tested** |
-| Liene PixCut S1 | `perilla` | 3101 | Untested; help wanted |
-| Liene Amber M110/M210 | `laurel` | 3007 | Untested; help wanted |
-| Liene Photo Printer | `fennel` | 3005 | Untested; help wanted |
-| Portable Photo Printer | `kiwi` | 1021 | Untested; help wanted |
-
-I'm also looking for **Linux and Windows testers** with an N200 Pro.
+support.** The N200 Pro (DMP130) is the only model I can test; the other models
+in the table above need testers, including Linux and Windows users with an
+N200 Pro.
 
 If you can help, open a
 [Printer support report](https://github.com/bydavy/liene-printer-desktop-app/issues/new?template=printer-support.md)
@@ -79,7 +93,8 @@ addresses, serial numbers, and personal file paths first.
 
 - macOS 13 or newer (tested; Apple Silicon or Intel), or Linux/Windows
   (untested).
-- A Liene Pearl N200 Pro and photo paper/ribbon.
+- A supported Liene/Hannto printer and photo paper/ribbon. The N200 Pro is
+  hardware-tested; see the supported-printers table for other models.
 - The printer paired with your OS's Bluetooth.
 
 ## Install
