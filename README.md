@@ -1,4 +1,4 @@
-# Liene Printer Desktop App
+# Liene Desktop App
 
 [![CI](https://github.com/bydavy/liene-printer-desktop-app/actions/workflows/ci.yml/badge.svg)](https://github.com/bydavy/liene-printer-desktop-app/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/bydavy/liene-printer-desktop-app?display_name=tag)](https://github.com/bydavy/liene-printer-desktop-app/releases/latest)
@@ -47,10 +47,9 @@ status is **untested**.
 | Liene Photo Printer | `fennel` | 3005 | Untested; help wanted |
 | Portable Photo Printer | `kiwi` | 1021 | Untested; help wanted |
 
-Other Hannto/Liene models may share the protocol. The macOS app bundle and
-release filenames are still named `Liene N200 Pro` because that is the tested
-model; the code is not limited to it. Testers with any of these printers are
-very welcome — see below.
+Other Hannto/Liene models may share the protocol. The app is named **Liene
+Desktop App**; the N200 Pro is the tested model. Testers with any of these
+printers are very welcome — see below.
 
 ## WASM / browser
 
@@ -103,7 +102,7 @@ addresses, serial numbers, and personal file paths first.
 
 Download the latest DMG from
 [Releases](https://github.com/bydavy/liene-printer-desktop-app/releases/latest), open it,
-and drag **Liene N200 Pro** to Applications.
+and drag **Liene Desktop App** to Applications.
 
 The release is **ad-hoc signed, not notarized**. On first launch, either:
 
@@ -112,7 +111,7 @@ The release is **ad-hoc signed, not notarized**. On first launch, either:
 - clear the quarantine flag once:
 
   ```sh
-  xattr -dr com.apple.quarantine "/Applications/Liene N200 Pro.app"
+  xattr -dr com.apple.quarantine "/Applications/Liene Desktop App.app"
   ```
 
 Then allow Bluetooth access when macOS asks. Pair the printer once in
@@ -134,8 +133,8 @@ Actions → CI → `linux-untested`), or can be built locally:
 # BlueZ is used for discovery; `sdptool` is optional.
 # The transport falls back to the printer's known SPP RFCOMM channel 1.
 cargo build --release -p liene-cli -p liene-gui
-cp target/release/liene-n200 target/release/liene-n200-app /some/folder/
-cd /some/folder && ./liene-n200-app
+cp target/release/liene-n200 target/release/liene-desktop-app /some/folder/
+cd /some/folder && ./liene-desktop-app
 ```
 
 Pair first with BlueZ:
@@ -158,8 +157,8 @@ Actions → CI → `windows-untested`), or built with:
 
 ```powershell
 cargo build --release -p liene-cli -p liene-gui
-# keep liene-n200.exe and liene-n200-app.exe together
-.\target\release\liene-n200-app.exe
+# keep liene-n200.exe and liene-desktop-app.exe together
+.\target\release\liene-desktop-app.exe
 ```
 
 Pair the printer in **Settings → Bluetooth & devices → Add device** first.
@@ -182,8 +181,9 @@ The app auto-connects to the paired printer and provides:
     rule-of-thirds guides.
   - **2:3 crop** snaps to the largest centered 2:3 frame; **Reset** starts
     over.
-- **Print settings**: copies (1–9), Fill (cover) or Fit (contain), 600×900
-  (native) or 1200×1800.
+- **Print settings**: copies (1–9), Fill (cover) or Fit (contain). The default
+  canvas is 1200×1800 (2× the native 300 dpi output); 600×900 remains
+  selectable.
 - **Print preview**: the final 2:3 composition next to the settings. With
   **Fit**, the white borders are shown exactly as they will print.
 - **Printer status**: state, sub-state, battery, alerts, and model/serial/
@@ -211,7 +211,7 @@ liene-n200 ble --connect
 liene-n200 status
 liene-n200 info
 
-# Print a photo (cover-cropped to 600x900 by default)
+# Print a photo (cover-cropped to 1200x1800 by default)
 liene-n200 print photo.jpg --copies 1
 
 # Rotate/crop while printing
@@ -221,8 +221,8 @@ liene-n200 print photo.jpg --rotate 90 --crop 0.1,0.2,0.6,0.5
 liene-n200 prepare photo.jpg --out prepared.jpg --rotate 90 \
     --crop 0.1,0.2,0.6,0.5
 
-# 1200x1800 source canvas; the printer downscales to 300 dpi
-liene-n200 print photo.jpg --width 1200 --height 1800 --fit contain
+# Native 600x900 output (optional; 1200x1800 is the default)
+liene-n200 print photo.jpg --width 600 --height 900 --fit contain
 
 # Don't block until the print finishes
 liene-n200 print photo.jpg --no-wait
@@ -242,38 +242,10 @@ hidden JSON-line daemon used by the GUI; it is not normally run by hand.
 
 ## How it works
 
-The printer speaks a framed binary protocol over **Bluetooth Classic SPP**
-(RFCOMM channel 1), not BLE. JSON control messages and image chunks share the
-same framing:
-
-```text
-0x7E | version | reserve | connectType | interactive | encoding
-     | terminalId u32 | msgSn u32 | pkgTotal u16 | pkgNum u16
-     | attributes u16 | body | checksum u8 | 0x7E
-```
-
-A print job is `print-job` JSON → 892-byte file chunks (each prefixed with the
-4-byte job id) → automatic start. Status uses `get-prop`; job tracking uses
-`get-job-info`. The exact fields, constants, and observed responses are in
-[docs/PROTOCOL.md](docs/PROTOCOL.md).
-
-### Architecture
-
-```text
-crates/liene-protocol/      portable frames, JSON-RPC, chunking (no platform code)
-crates/liene-client/        SPP transport, pairing, editing, image pipeline, daemon
-crates/liene-cli/           command-line driver + hidden JSON-line `serve` mode
-crates/liene-gui/           egui desktop app
-vendor/waterkit-bluetooth/  patched transport (direct RFCOMM channel 1)
-docs/PROTOCOL.md            recovered protocol reference
-docs/WASM.md                why a browser/WASM build cannot print
-```
-
-The GUI spawns the CLI in `serve` mode and talks to it over JSON lines. On
-macOS this keeps IOBluetooth callbacks on a process whose main run loop
-services them; winit/eframe's macOS loop does not reliably do so. The same
-helper boundary is used on Linux and Windows, and both binaries are shipped
-together in the macOS `.app` and the Linux/Windows packages.
+The printer uses the Hannto/Liene framed protocol over Bluetooth Classic SPP.
+See [How it works](docs/ARCHITECTURE.md) for the framing summary, print flow,
+crate architecture, and helper-process design; see
+[PROTOCOL.md](docs/PROTOCOL.md) for byte-level details.
 
 ## Build from source
 
@@ -293,20 +265,20 @@ cargo test
 ./scripts/bundle-macos.sh --universal
 
 # Compressed DMG with an /Applications shortcut
-VERSION=0.2.0 ./scripts/make-dmg.sh
+VERSION=0.3.0 ./scripts/make-dmg.sh
 ```
 
 Outputs:
 
 - `target/release/liene-n200` — CLI
-- `target/release/liene-n200-app` — GUI
-- `dist/Liene N200 Pro.app`
-- `dist/Liene-N200-Pro-<version>.dmg` and `.sha256`
+- `target/release/liene-desktop-app` — GUI
+- `dist/Liene Desktop App.app`
+- `dist/Liene-Desktop-App-<version>.dmg` and `.sha256`
 
 Linux/Windows packages (untested):
 
 ```sh
-VERSION=0.2.0 ./scripts/bundle-linux.sh          # on Linux
+VERSION=0.3.0 ./scripts/bundle-linux.sh          # on Linux
 pwsh ./scripts/bundle-windows.ps1                # on Windows; VERSION env optional
 ```
 
@@ -314,7 +286,7 @@ CI also publishes `linux-untested` and `windows-untested` artifacts on every
 run.
 
 Run the app directly with `cargo run -p liene-gui` or
-`open "dist/Liene N200 Pro.app"`.
+`open "dist/Liene Desktop App.app"`.
 
 ## Development
 
@@ -341,9 +313,9 @@ and changelog first:
 
 ```sh
 # edit Cargo.toml [workspace.package] version and CHANGELOG.md
-git commit -am "Release v0.2.0"
-git tag v0.2.0
-git push origin main v0.2.0
+git commit -am "Release v0.3.0"
+git tag v0.3.0
+git push origin main v0.3.0
 ```
 
 It can also be run manually (`workflow_dispatch`) to produce a CI artifact.
