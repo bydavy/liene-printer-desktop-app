@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve the Liene N200 Pro client.
+Thanks for helping improve the Liene Desktop App client.
 
 ## Good first contributions
 
@@ -26,7 +26,7 @@ are produced by:
 
 ```sh
 ./scripts/bundle-macos.sh
-VERSION=0.2.0 ./scripts/make-dmg.sh
+VERSION=0.3.0 ./scripts/make-dmg.sh
 ```
 
 Hardware testing requires the printer; unit tests must pass without it.

@@ -15,7 +15,7 @@ use printer::Printer;
 #[command(
     name = "liene-n200",
     version,
-    about = "Print photos on a Liene Pearl N200 Pro over Bluetooth"
+    about = "Print photos on Liene/Hannto photo printers over Bluetooth"
 )]
 struct Cli {
     /// Device name prefix to look for (case-insensitive).
@@ -70,13 +70,13 @@ enum Command {
         #[arg(short, long, default_value = "prepared.jpg")]
         out: PathBuf,
 
-        #[arg(long, default_value_t = 600)]
+        #[arg(long, default_value_t = 1200)]
         width: u32,
 
-        #[arg(long, default_value_t = 900)]
+        #[arg(long, default_value_t = 1800)]
         height: u32,
 
-        #[arg(long, default_value = "cover")]
+        #[arg(long, default_value = "contain")]
         fit: String,
 
         #[arg(long, default_value_t = 0)]
@@ -100,16 +100,16 @@ enum Command {
         #[arg(short, long, default_value_t = 1)]
         copies: u32,
 
-        /// Canvas width in pixels (default 600 = 2 inch at 300 dpi).
-        #[arg(long, default_value_t = 600)]
+        /// Canvas width in pixels (default 1200; 2x native 300 dpi output).
+        #[arg(long, default_value_t = 1200)]
         width: u32,
 
-        /// Canvas height in pixels (default 900 = 3 inch at 300 dpi).
-        #[arg(long, default_value_t = 900)]
+        /// Canvas height in pixels (default 1800; 2x native 300 dpi output).
+        #[arg(long, default_value_t = 1800)]
         height: u32,
 
-        /// Fit mode: cover (crop to fill) or contain (letterbox).
-        #[arg(long, default_value = "cover")]
+        /// Fit mode: contain (letterbox, default) or cover (crop to fill).
+        #[arg(long, default_value = "contain")]
         fit: String,
 
         /// Delay between 918-byte upload frames, so the printer's RFCOMM

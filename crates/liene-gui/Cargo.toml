@@ -5,10 +5,10 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 repository.workspace = true
-description = "Desktop photo printer app for the Liene Pearl N200 Pro"
+description = "Desktop app for Liene/Hannto photo printers"
 
 [[bin]]
-name = "liene-n200-app"
+name = "liene-desktop-app"
 path = "src/main.rs"
 
 [dependencies]

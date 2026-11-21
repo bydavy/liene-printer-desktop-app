@@ -61,9 +61,9 @@ jobs:
 
       - name: Verify universal binaries
         run: |
-          lipo -info "dist/Liene N200 Pro.app/Contents/MacOS/liene-n200-app"
-          lipo -info "dist/Liene N200 Pro.app/Contents/MacOS/liene-n200"
-          codesign --verify --deep --strict "dist/Liene N200 Pro.app"
+          lipo -info "dist/Liene Desktop App.app/Contents/MacOS/liene-desktop-app"
+          lipo -info "dist/Liene Desktop App.app/Contents/MacOS/liene-n200"
+          codesign --verify --deep --strict "dist/Liene Desktop App.app"
 
       - name: Build DMG
         env:
@@ -75,8 +75,8 @@ jobs:
         with:
           name: macos-dmg
           path: |
-            dist/Liene-N200-Pro-*.dmg
-            dist/Liene-N200-Pro-*.dmg.sha256
+            dist/Liene-Desktop-App-*.dmg
+            dist/Liene-Desktop-App-*.dmg.sha256
           if-no-files-found: error
 
   linux:
@@ -111,8 +111,8 @@ jobs:
         with:
           name: linux-package
           path: |
-            dist/Liene-N200-Pro-*.tar.gz
-            dist/Liene-N200-Pro-*.tar.gz.sha256
+            dist/Liene-Desktop-App-*.tar.gz
+            dist/Liene-Desktop-App-*.tar.gz.sha256
           if-no-files-found: error
 
   windows:
@@ -140,8 +140,8 @@ jobs:
         with:
           name: windows-package
           path: |
-            dist/Liene-N200-Pro-*.zip
-            dist/Liene-N200-Pro-*.zip.sha256
+            dist/Liene-Desktop-App-*.zip
+            dist/Liene-Desktop-App-*.zip.sha256
           if-no-files-found: error
 
   publish:
@@ -165,21 +165,21 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/Liene-N200-Pro-*.dmg
-            dist/Liene-N200-Pro-*.dmg.sha256
-            dist/Liene-N200-Pro-*.tar.gz
-            dist/Liene-N200-Pro-*.tar.gz.sha256
-            dist/Liene-N200-Pro-*.zip
-            dist/Liene-N200-Pro-*.zip.sha256
+            dist/Liene-Desktop-App-*.dmg
+            dist/Liene-Desktop-App-*.dmg.sha256
+            dist/Liene-Desktop-App-*.tar.gz
+            dist/Liene-Desktop-App-*.tar.gz.sha256
+            dist/Liene-Desktop-App-*.zip
+            dist/Liene-Desktop-App-*.zip.sha256
           fail_on_unmatched_files: true
           body: |
-            ## Liene N200 Pro ${{ needs.prepare.outputs.version }}
+            ## Liene Desktop App ${{ needs.prepare.outputs.version }}
 
             **macOS 13+ universal DMG** (Apple Silicon + Intel) — hardware-tested
             on the N200 Pro. The app is ad-hoc signed, not notarized. On first
             launch, right-click the app and choose Open, or clear quarantine:
 
-                xattr -dr com.apple.quarantine "/Applications/Liene N200 Pro.app"
+                xattr -dr com.apple.quarantine "/Applications/Liene Desktop App.app"
 
             **Linux x86_64 tar.gz** — **UNTESTED**. Pair with BlueZ
             (`bluetoothctl --timeout 30 pair <MAC>`, `trust <MAC>`, `connect <MAC>`),
@@ -187,7 +187,7 @@ jobs:
 
             **Windows x86_64 zip** — **UNTESTED**. Pair in Settings → Bluetooth &
             devices, keep both `.exe` files together, and run
-            `liene-n200-app.exe`. SmartScreen may warn because it is unsigned.
+            `liene-desktop-app.exe`. SmartScreen may warn because it is unsigned.
             Help wanted.
 
             Testers with other Liene/Hannto printers: please open a

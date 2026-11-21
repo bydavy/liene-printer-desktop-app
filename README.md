@@ -181,9 +181,9 @@ The app auto-connects to the paired printer and provides:
     rule-of-thirds guides.
   - **2:3 crop** snaps to the largest centered 2:3 frame; **Reset** starts
     over.
-- **Print settings**: copies (1–9), Fill (cover) or Fit (contain). The default
-  canvas is 1200×1800 (2× the native 300 dpi output); 600×900 remains
-  selectable.
+- **Print settings**: copies (1–9), **Fit** (contain, default; white borders)
+  or **Fill** (cover; crops to the print). The default canvas is 1200×1800 (2×
+  the native 300 dpi output); 600×900 remains selectable.
 - **Print preview**: the final 2:3 composition next to the settings. With
   **Fit**, the white borders are shown exactly as they will print.
 - **Printer status**: state, sub-state, battery, alerts, and model/serial/
@@ -211,7 +211,7 @@ liene-n200 ble --connect
 liene-n200 status
 liene-n200 info
 
-# Print a photo (cover-cropped to 1200x1800 by default)
+# Print a photo (fit into 1200x1800 with white borders by default)
 liene-n200 print photo.jpg --copies 1
 
 # Rotate/crop while printing
@@ -221,8 +221,11 @@ liene-n200 print photo.jpg --rotate 90 --crop 0.1,0.2,0.6,0.5
 liene-n200 prepare photo.jpg --out prepared.jpg --rotate 90 \
     --crop 0.1,0.2,0.6,0.5
 
-# Native 600x900 output (optional; 1200x1800 is the default)
-liene-n200 print photo.jpg --width 600 --height 900 --fit contain
+# Native 600x900 output (optional; 1200x1800 and Fit are the defaults)
+liene-n200 print photo.jpg --width 600 --height 900
+
+# Fill the page instead of adding white borders
+liene-n200 print photo.jpg --fit cover
 
 # Don't block until the print finishes
 liene-n200 print photo.jpg --no-wait
@@ -296,8 +299,9 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 cargo test --workspace --locked
 ```
 
-CI runs these checks on macOS. Hardware tests require a printer; the unit
-tests cover framing, chunking, the edit/zoom model, and the image pipeline.
+CI runs these checks on macOS, Linux, and Windows. Hardware tests require a
+printer; the unit tests cover framing, chunking, the edit/zoom model, and the
+image pipeline.
 
 ## Releasing
 

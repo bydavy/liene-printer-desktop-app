@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 repository.workspace = true
-description = "Wire protocol for Hannto/Liene photo printers (Liene Pearl N200 Pro)"
+description = "Wire protocol for Hannto/Liene photo printers"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

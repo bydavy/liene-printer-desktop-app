@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Package dist/Liene N200 Pro.app into a compressed DMG with an
+# Package dist/Liene Desktop App.app into a compressed DMG with an
 # /Applications shortcut for drag-and-drop installation.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${VERSION:-0.2.0}"
+VERSION="${VERSION:-0.3.0}"
 VERSION="${VERSION#v}"
 
-APP="$ROOT/dist/Liene N200 Pro.app"
+APP="$ROOT/dist/Liene Desktop App.app"
 if [[ ! -d "$APP" ]]; then
     echo "error: $APP not found; run scripts/bundle-macos.sh first" >&2
     exit 1
@@ -18,13 +18,13 @@ fi
 STAGE="$ROOT/build/dmg"
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
-ditto "$APP" "$STAGE/Liene N200 Pro.app"
+ditto "$APP" "$STAGE/Liene Desktop App.app"
 ln -s /Applications "$STAGE/Applications"
 
-DMG="$ROOT/dist/Liene-N200-Pro-${VERSION}.dmg"
+DMG="$ROOT/dist/Liene-Desktop-App-${VERSION}.dmg"
 rm -f "$DMG"
 hdiutil create \
-    -volname "Liene N200 Pro" \
+    -volname "Liene Desktop App" \
     -srcfolder "$STAGE" \
     -ov \
     -format UDZO \

@@ -9,25 +9,25 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${VERSION:-0.2.0}"
+VERSION="${VERSION:-0.3.0}"
 VERSION="${VERSION#v}"
 
 cargo build --release --locked -p liene-cli -p liene-gui
 
-NAME="Liene-N200-Pro-${VERSION}-linux-x86_64"
+NAME="Liene-Desktop-App-${VERSION}-linux-x86_64"
 STAGE="$ROOT/dist/$NAME"
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
 
-cp target/release/liene-n200 target/release/liene-n200-app "$STAGE/"
+cp target/release/liene-n200 target/release/liene-desktop-app "$STAGE/"
 cp README.md LICENSE "$STAGE/"
-cp assets/AppIcon.png "$STAGE/liene-n200-pro.png"
+cp assets/AppIcon.png "$STAGE/liene-desktop-app.png"
 
 cat > "$STAGE/run.sh" <<'RUN'
 #!/usr/bin/env bash
 # Keep the helper next to the GUI binary.
 cd "$(dirname "$0")"
-exec ./liene-n200-app "$@"
+exec ./liene-desktop-app "$@"
 RUN
 chmod +x "$STAGE/run.sh"
 
@@ -41,8 +41,8 @@ not been verified on real N200 Pro hardware.
      bluetoothctl --timeout 30 pair <MAC>
      bluetoothctl trust <MAC>
      bluetoothctl connect <MAC>
-2. Keep liene-n200 and liene-n200-app in the same directory.
-3. Run ./run.sh (or ./liene-n200-app).
+2. Keep liene-n200 and liene-desktop-app in the same directory.
+3. Run ./run.sh (or ./liene-desktop-app).
 
 If it works, please open an issue with your distro, BlueZ version, printer
 model/firmware, and a `liene-n200 --debug status` log. If it fails, that log is

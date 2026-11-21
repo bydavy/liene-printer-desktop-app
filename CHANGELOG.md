@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0] - 2026-11-21
+
+### Changed
+
+- Renamed the desktop app to **Liene Desktop App** (binary
+  `liene-desktop-app`; release assets now `Liene-Desktop-App-*`).
+- Default print quality is now 1200×1800 (2× the native 300 dpi output);
+  600×900 remains selectable. CLI `print` and `prepare` also default to
+  1200×1800.
+- Default framing is now **Fit** (contain, white borders) instead of Fill
+  (cover). Fill remains selectable in the app and via `--fit cover`.
+- The macOS bundle, Linux archive, Windows zip, and DMG names follow the new
+  app name.
+
 ## [0.2.0] - 2026-11-21
 
 ### Added

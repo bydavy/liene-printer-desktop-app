@@ -26,11 +26,11 @@ fn main() -> eframe::Result<()> {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1040.0, 760.0])
             .with_min_inner_size([960.0, 600.0])
-            .with_title("Liene N200 Pro"),
+            .with_title("Liene Desktop App"),
         ..Default::default()
     };
     eframe::run_native(
-        "Liene N200 Pro",
+        "Liene Desktop App",
         options,
         Box::new(|cc| Ok(Box::new(LieneApp::new(cc)))),
     )
@@ -52,7 +52,7 @@ struct JobUi {
     print_time_ms: u64,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Quality {
     Native,
     High,
@@ -159,8 +159,8 @@ impl LieneApp {
             crop_drag: None,
             crop_drag_start: None,
             copies: 1,
-            fit: Fit::Cover,
-            quality: Quality::Native,
+            fit: Fit::Contain,
+            quality: Quality::High,
             job: None,
             upload: None,
             error: startup_error,
@@ -196,7 +196,7 @@ impl LieneApp {
                 Fit::Cover
             };
         }
-        app.push_log("Liene N200 Pro ready.");
+        app.push_log("Liene Desktop App ready.");
         app
     }
 
@@ -371,9 +371,9 @@ impl LieneApp {
     fn top_bar(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
-                ui.label(RichText::new("Liene N200 Pro").size(24.0).strong());
+                ui.label(RichText::new("Liene Desktop App").size(24.0).strong());
                 ui.label(
-                    RichText::new("2×3 dye-sublimation photo printer")
+                    RichText::new("Liene / Hannto photo printer")
                         .color(MUTED)
                         .small(),
                 );

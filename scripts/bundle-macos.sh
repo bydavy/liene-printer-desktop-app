@@ -4,7 +4,7 @@
 # Host build:      ./scripts/bundle-macos.sh
 # Universal build: ./scripts/bundle-macos.sh --universal
 #
-# VERSION=0.2.0 can be supplied by the release workflow.
+# VERSION=0.3.0 can be supplied by the release workflow.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,7 +15,7 @@ if [[ "${1:-}" == "--universal" ]]; then
     UNIVERSAL=1
 fi
 
-VERSION="${VERSION:-0.2.0}"
+VERSION="${VERSION:-0.3.0}"
 VERSION="${VERSION#v}"
 
 BIN_DIR="$ROOT/target/liene-bundle"
@@ -44,9 +44,9 @@ if [[ "$UNIVERSAL" == "1" ]]; then
     "$CARGO_BIN" build --release --locked --target x86_64-apple-darwin -p liene-cli -p liene-gui
 
     lipo -create \
-        -output "$BIN_DIR/liene-n200-app" \
-        "target/aarch64-apple-darwin/release/liene-n200-app" \
-        "target/x86_64-apple-darwin/release/liene-n200-app"
+        -output "$BIN_DIR/liene-desktop-app" \
+        "target/aarch64-apple-darwin/release/liene-desktop-app" \
+        "target/x86_64-apple-darwin/release/liene-desktop-app"
     lipo -create \
         -output "$BIN_DIR/liene-n200" \
         "target/aarch64-apple-darwin/release/liene-n200" \
@@ -54,15 +54,15 @@ if [[ "$UNIVERSAL" == "1" ]]; then
 else
     CARGO_BIN="${CARGO:-cargo}"
     "$CARGO_BIN" build --release --locked -p liene-cli -p liene-gui
-    cp "target/release/liene-n200-app" "$BIN_DIR/liene-n200-app"
+    cp "target/release/liene-desktop-app" "$BIN_DIR/liene-desktop-app"
     cp "target/release/liene-n200" "$BIN_DIR/liene-n200"
 fi
 
-APP="$ROOT/dist/Liene N200 Pro.app"
+APP="$ROOT/dist/Liene Desktop App.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-cp "$BIN_DIR/liene-n200-app" "$APP/Contents/MacOS/liene-n200-app"
+cp "$BIN_DIR/liene-desktop-app" "$APP/Contents/MacOS/liene-desktop-app"
 # The GUI spawns this helper so IOBluetooth lives in a process whose main run
 # loop services its callbacks.
 cp "$BIN_DIR/liene-n200" "$APP/Contents/MacOS/liene-n200"
@@ -79,15 +79,15 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>liene-n200-app</string>
+    <string>liene-desktop-app</string>
     <key>CFBundleIdentifier</key>
     <string>io.github.bydavy.liene-printer-desktop-app</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Liene N200 Pro</string>
+    <string>Liene Desktop App</string>
     <key>CFBundleDisplayName</key>
-    <string>Liene N200 Pro</string>
+    <string>Liene Desktop App</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -103,7 +103,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
-    <string>Liene N200 Pro needs Bluetooth access to discover and print to your photo printer.</string>
+    <string>Liene Desktop App needs Bluetooth access to discover and print to your photo printer.</string>
     <key>NSHumanReadableCopyright</key>
     <string>MIT-licensed unofficial client; not affiliated with Liene or Hannto.</string>
     <key>CFBundleIconFile</key>

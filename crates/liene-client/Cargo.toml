@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
 repository.workspace = true
-description = "Bluetooth client and image preparation for Liene Pearl N200 Pro printers"
+description = "Bluetooth client and image preparation for Liene/Hannto photo printers"
 
 [dependencies]
 anyhow = "1"
