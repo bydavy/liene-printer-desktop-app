@@ -75,8 +75,8 @@ jobs:
         with:
           name: macos-dmg
           path: |
-            dist/Liene-Desktop-App-*.dmg
-            dist/Liene-Desktop-App-*.dmg.sha256
+            dist/Liene-Desktop-App-*-macos.dmg
+            dist/Liene-Desktop-App-*-macos.dmg.sha256
           if-no-files-found: error
 
   linux:
@@ -165,8 +165,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/Liene-Desktop-App-*.dmg
-            dist/Liene-Desktop-App-*.dmg.sha256
+            dist/Liene-Desktop-App-*-macos.dmg
+            dist/Liene-Desktop-App-*-macos.dmg.sha256
             dist/Liene-Desktop-App-*.tar.gz
             dist/Liene-Desktop-App-*.tar.gz.sha256
             dist/Liene-Desktop-App-*.zip

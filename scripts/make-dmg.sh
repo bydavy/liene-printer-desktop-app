@@ -21,7 +21,7 @@ mkdir -p "$STAGE"
 ditto "$APP" "$STAGE/Liene Desktop App.app"
 ln -s /Applications "$STAGE/Applications"
 
-DMG="$ROOT/dist/Liene-Desktop-App-${VERSION}.dmg"
+DMG="$ROOT/dist/Liene-Desktop-App-${VERSION}-macos.dmg"
 rm -f "$DMG"
 hdiutil create \
     -volname "Liene Desktop App" \

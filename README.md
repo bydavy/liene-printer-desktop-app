@@ -64,6 +64,8 @@ local-bridge or BLE-GATT routes.
 
 - **Native desktop app** (egui/Rust) for macOS, Linux, and Windows, with live
   printer status, battery, alerts, and model/serial/firmware information.
+- **Light and dark themes** that follow the system appearance, with a custom
+  palette for each.
 - **Non-destructive editing**: rotate in 90° steps, freeform crop, **Lock 2:3**
   with a 1×–8× zoom/framing slider, and a live **print preview** with white
   borders for Fit.
@@ -278,7 +280,7 @@ Outputs:
 - `target/release/liene-n200` — CLI
 - `target/release/liene-desktop-app` — GUI
 - `dist/Liene Desktop App.app`
-- `dist/Liene-Desktop-App-<version>.dmg` and `.sha256`
+- `dist/Liene-Desktop-App-<version>-macos.dmg` and `.sha256`
 
 Linux/Windows packages (untested):
 
@@ -304,6 +306,10 @@ cargo test --workspace --locked
 CI runs these checks on macOS, Linux, and Windows. Hardware tests require a
 printer; the unit tests cover framing, chunking, the edit/zoom model, and the
 image pipeline.
+
+The UI follows the system light/dark appearance. To preview a theme without
+changing your OS setting, launch with `LIENE_THEME=light` or
+`LIENE_THEME=dark` (also used by the screenshot tooling).
 
 ## Releasing
 

@@ -13,13 +13,97 @@ use liene_client::daemon::{Command, Event, PrintRequest};
 use liene_client::{Fit, NormalizedRect, PhotoEdit};
 use serde_json::Value;
 
-const GREEN: Color32 = Color32::from_rgb(0x6c, 0xc6, 0x7a);
-const RED: Color32 = Color32::from_rgb(0xe5, 0x6b, 0x6f);
-const AMBER: Color32 = Color32::from_rgb(0xe6, 0xb4, 0x50);
-const MUTED: Color32 = Color32::from_rgb(0x9a, 0xa0, 0xa6);
-const PANEL: Color32 = Color32::from_rgb(0x1c, 0x1e, 0x22);
-const CARD: Color32 = Color32::from_rgb(0x25, 0x28, 0x2d);
 const MAX_ZOOM: f32 = 8.0;
+
+/// Theme-aware colors for the parts of the UI that egui does not style.
+///
+/// egui switches between its dark and light `Visuals` when the OS appearance
+/// changes; this palette makes the app's custom cards, status colors, and
+/// error banner follow the same switch.
+#[derive(Clone, Copy)]
+struct Palette {
+    green: Color32,
+    red: Color32,
+    amber: Color32,
+    muted: Color32,
+    card: Color32,
+    drop_fill: Color32,
+    error_fill: Color32,
+    error_text: Color32,
+    accent: Color32,
+    disabled_fill: Color32,
+    border: Color32,
+}
+
+impl Palette {
+    fn of(ui: &egui::Ui) -> Self {
+        if ui.visuals().dark_mode {
+            Self::DARK
+        } else {
+            Self::LIGHT
+        }
+    }
+
+    const DARK: Self = Self {
+        green: Color32::from_rgb(0x6c, 0xc6, 0x7a),
+        red: Color32::from_rgb(0xe5, 0x6b, 0x6f),
+        amber: Color32::from_rgb(0xe6, 0xb4, 0x50),
+        muted: Color32::from_rgb(0x9a, 0xa0, 0xa6),
+        card: Color32::from_rgb(0x25, 0x28, 0x2d),
+        drop_fill: Color32::from_rgb(0x22, 0x33, 0x2c),
+        error_fill: Color32::from_rgb(0x3a, 0x1d, 0x20),
+        error_text: Color32::from_rgb(0xff, 0xc9, 0xcc),
+        accent: Color32::from_rgb(0x2f, 0x6b, 0x9e),
+        disabled_fill: Color32::from_rgb(0x2c, 0x30, 0x36),
+        border: Color32::from_rgb(0x3c, 0x42, 0x4a),
+    };
+
+    // Darker status colors and muted text keep AA-level contrast on white.
+    const LIGHT: Self = Self {
+        green: Color32::from_rgb(0x1f, 0x7a, 0x3d),
+        red: Color32::from_rgb(0xb4, 0x23, 0x18),
+        amber: Color32::from_rgb(0x94, 0x62, 0x00),
+        muted: Color32::from_rgb(0x5b, 0x62, 0x6b),
+        card: Color32::WHITE,
+        drop_fill: Color32::from_rgb(0xe3, 0xf2, 0xe8),
+        error_fill: Color32::from_rgb(0xfd, 0xec, 0xeb),
+        error_text: Color32::from_rgb(0x8f, 0x1d, 0x18),
+        accent: Color32::from_rgb(0x25, 0x63, 0xa8),
+        disabled_fill: Color32::from_rgb(0xe9, 0xec, 0xf0),
+        border: Color32::from_rgb(0xcf, 0xd4, 0xdb),
+    };
+}
+
+fn dark_visuals() -> egui::Visuals {
+    let mut visuals = egui::Visuals::dark();
+    visuals.panel_fill = Color32::from_rgb(0x1c, 0x1e, 0x22);
+    visuals.window_fill = visuals.panel_fill;
+    visuals.extreme_bg_color = Color32::from_rgb(0x14, 0x16, 0x19);
+    visuals.widgets.inactive.bg_fill = Color32::from_rgb(0x2e, 0x32, 0x38);
+    visuals.widgets.hovered.bg_fill = Color32::from_rgb(0x31, 0x35, 0x3b);
+    visuals.widgets.active.bg_fill = Color32::from_rgb(0x38, 0x3d, 0x44);
+    visuals.widgets.noninteractive.bg_stroke =
+        egui::Stroke::new(1.0, Color32::from_rgb(0x3c, 0x42, 0x4a));
+    visuals.selection.bg_fill = Color32::from_rgb(0x2f, 0x5e, 0x8a);
+    // Selected labels/buttons use this as their foreground color.
+    visuals.selection.stroke = egui::Stroke::new(1.0, Color32::WHITE);
+    visuals
+}
+
+fn light_visuals() -> egui::Visuals {
+    let mut visuals = egui::Visuals::light();
+    visuals.panel_fill = Color32::from_rgb(0xf1, 0xf3, 0xf6);
+    visuals.window_fill = visuals.panel_fill;
+    visuals.extreme_bg_color = Color32::from_rgb(0xe7, 0xea, 0xef);
+    visuals.widgets.inactive.bg_fill = Color32::from_rgb(0xe6, 0xe9, 0xed);
+    visuals.widgets.hovered.bg_fill = Color32::from_rgb(0xdb, 0xe0, 0xe6);
+    visuals.widgets.active.bg_fill = Color32::from_rgb(0xcf, 0xd5, 0xdd);
+    visuals.widgets.noninteractive.bg_stroke =
+        egui::Stroke::new(1.0, Color32::from_rgb(0xd5, 0xd9, 0xdf));
+    visuals.selection.bg_fill = Color32::from_rgb(0x25, 0x63, 0xa8);
+    visuals.selection.stroke = egui::Stroke::new(1.0, Color32::WHITE);
+    visuals
+}
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
@@ -106,23 +190,32 @@ struct LieneApp {
     screenshot_path: Option<PathBuf>,
     frames: u32,
     no_connect: bool,
+    /// Keep the page at the top while taking a repeatable screenshot.
+    pin_scroll_top: bool,
 }
 
 impl LieneApp {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let mut visuals = egui::Visuals::dark();
-        visuals.panel_fill = PANEL;
-        visuals.window_fill = PANEL;
-        visuals.extreme_bg_color = Color32::from_rgb(0x14, 0x16, 0x19);
-        visuals.widgets.inactive.bg_fill = Color32::from_rgb(0x2e, 0x32, 0x38);
-        visuals.widgets.hovered.bg_fill = Color32::from_rgb(0x31, 0x35, 0x3b);
-        visuals.selection.bg_fill = Color32::from_rgb(0x2f, 0x5e, 0x8a);
-        cc.egui_ctx.set_visuals(visuals);
+        // Follow the OS appearance by default; the env var is a screenshot /
+        // diagnostics hook for forcing a theme without changing the system.
+        match std::env::var("LIENE_THEME").as_deref() {
+            Ok("light") => cc.egui_ctx.set_theme(egui::ThemePreference::Light),
+            Ok("dark") => cc.egui_ctx.set_theme(egui::ThemePreference::Dark),
+            _ => {}
+        }
 
-        let mut style = (*cc.egui_ctx.style_of(egui::Theme::Dark)).clone();
-        style.spacing.item_spacing = egui::vec2(10.0, 8.0);
-        style.spacing.button_padding = egui::vec2(12.0, 7.0);
-        cc.egui_ctx.set_style_of(egui::Theme::Dark, style);
+        // Custom palette for each theme, applied to both so runtime OS theme
+        // changes work in either direction.
+        for theme in [egui::Theme::Dark, egui::Theme::Light] {
+            let mut style = (*cc.egui_ctx.style_of(theme)).clone();
+            style.spacing.item_spacing = egui::vec2(10.0, 8.0);
+            style.spacing.button_padding = egui::vec2(12.0, 7.0);
+            cc.egui_ctx.set_style_of(theme, style);
+        }
+        cc.egui_ctx
+            .set_visuals_of(egui::Theme::Dark, dark_visuals());
+        cc.egui_ctx
+            .set_visuals_of(egui::Theme::Light, light_visuals());
 
         let (commands, child, events, startup_error) = match spawn_helper() {
             Ok((stdin, child, events)) => (Some(Mutex::new(stdin)), Some(child), events, None),
@@ -170,6 +263,7 @@ impl LieneApp {
             screenshot_path: std::env::var_os("LIENE_SCREENSHOT").map(PathBuf::from),
             frames: 0,
             no_connect: std::env::var_os("LIENE_NO_CONNECT").is_some(),
+            pin_scroll_top: std::env::var_os("LIENE_SCREENSHOT").is_some(),
         };
         if let Some(path) = std::env::var_os("LIENE_IMAGE") {
             app.load_image(PathBuf::from(path), &cc.egui_ctx);
@@ -369,12 +463,13 @@ impl LieneApp {
     }
 
     fn top_bar(&mut self, ui: &mut egui::Ui) {
+        let palette = Palette::of(ui);
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
                 ui.label(RichText::new("Liene Desktop App").size(24.0).strong());
                 ui.label(
                     RichText::new("Liene / Hannto photo printer")
-                        .color(MUTED)
+                        .color(palette.muted)
                         .small(),
                 );
             });
@@ -393,7 +488,11 @@ impl LieneApp {
                         self.send(Command::RefreshStatus);
                         self.send(Command::RefreshInfo);
                     }
-                    let dot = if self.printer_has_alert() { RED } else { GREEN };
+                    let dot = if self.printer_has_alert() {
+                        palette.red
+                    } else {
+                        palette.green
+                    };
                     let name = self
                         .connected
                         .as_ref()
@@ -410,7 +509,7 @@ impl LieneApp {
                             scan_secs: self.scan_secs,
                         });
                     }
-                    ui.colored_label(MUTED, "○ Disconnected");
+                    ui.colored_label(palette.muted, "○ Disconnected");
                 }
             });
         });
@@ -424,27 +523,33 @@ impl LieneApp {
     }
 
     fn error_banner(&mut self, ui: &mut egui::Ui) {
+        let palette = Palette::of(ui);
         let Some(message) = self.error.clone() else {
             return;
         };
         let mut dismiss = false;
         let mut resume = false;
         egui::Frame::new()
-            .fill(Color32::from_rgb(0x3a, 0x1d, 0x20))
+            .fill(palette.error_fill)
             .corner_radius(8.0)
             .inner_margin(12.0)
             .show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new(message).color(Color32::from_rgb(0xff, 0xc9, 0xcc)));
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                // Allocate the buttons first so a long connection error wraps
+                // in the remaining width instead of squeezing them out.
+                egui::containers::Sides::new().shrink_left().wrap().show(
+                    ui,
+                    |ui| {
+                        ui.label(RichText::new(message).color(palette.error_text));
+                    },
+                    |ui| {
                         if ui.button("Dismiss").clicked() {
                             dismiss = true;
                         }
                         if ui.button("Resume printer").clicked() {
                             resume = true;
                         }
-                    });
-                });
+                    },
+                );
             });
         if dismiss {
             self.error = None;
@@ -455,8 +560,9 @@ impl LieneApp {
     }
 
     fn photo_panel(&mut self, ui: &mut egui::Ui) {
+        let palette = Palette::of(ui);
         egui::Frame::new()
-            .fill(CARD)
+            .fill(palette.card)
             .corner_radius(12.0)
             .inner_margin(16.0)
             .show(ui, |ui| {
@@ -517,7 +623,7 @@ impl LieneApp {
                     }
                     ui.label(
                         RichText::new(format!("{}°", self.edit.normalized_rotation()))
-                            .color(MUTED)
+                            .color(palette.muted)
                             .small(),
                     );
                 });
@@ -545,12 +651,12 @@ impl LieneApp {
                             self.edit.set_zoom(width, height, zoom, true);
                         }
                         ui.label(
-                            RichText::new(format!("{zoom:.1}×")).color(MUTED).small(),
+                            RichText::new(format!("{zoom:.1}×")).color(palette.muted).small(),
                         );
                     } else {
                         ui.label(
                             RichText::new("Unlock to drag any edge freely")
-                                .color(MUTED)
+                                .color(palette.muted)
                                 .small(),
                         );
                     }
@@ -563,14 +669,14 @@ impl LieneApp {
                     ui.add_space(8.0);
                     ui.label(
                         RichText::new(path.display().to_string())
-                            .color(MUTED)
+                            .color(palette.muted)
                             .small(),
                     );
                     ui.label(
                         RichText::new(
                             "Drag to frame. Lock 2:3 + Zoom keeps the print aspect; unlock for freeform cropping.",
                         )
-                        .color(MUTED)
+                        .color(palette.muted)
                         .small(),
                     );
                 }
@@ -578,10 +684,11 @@ impl LieneApp {
     }
 
     fn photo_preview(&mut self, ui: &mut egui::Ui) {
+        let palette = Palette::of(ui);
         let drop_hover = ui.ctx().input(|i| !i.raw.hovered_files.is_empty());
         egui::Frame::new()
             .fill(if drop_hover {
-                Color32::from_rgb(0x22, 0x33, 0x2c)
+                palette.drop_fill
             } else {
                 ui.visuals().extreme_bg_color
             })
@@ -589,7 +696,7 @@ impl LieneApp {
             .stroke(egui::Stroke::new(
                 1.0,
                 if drop_hover {
-                    GREEN
+                    palette.green
                 } else {
                     ui.visuals().widgets.noninteractive.bg_stroke.color
                 },
@@ -630,14 +737,14 @@ impl LieneApp {
                         egui::Align2::CENTER_CENTER,
                         "Drop a photo here",
                         egui::FontId::proportional(19.0),
-                        MUTED,
+                        palette.muted,
                     );
                     painter.text(
                         outer_rect.center() + egui::vec2(0.0, 14.0),
                         egui::Align2::CENTER_CENTER,
                         "or choose a JPEG/PNG file",
                         egui::FontId::proportional(12.0),
-                        MUTED,
+                        palette.muted,
                     );
                 }
             });
@@ -881,11 +988,12 @@ impl LieneApp {
     }
 
     fn settings_panel(&mut self, ui: &mut egui::Ui) {
+        let palette = Palette::of(ui);
         self.status_card(ui);
         ui.add_space(8.0);
 
         egui::Frame::new()
-            .fill(CARD)
+            .fill(palette.card)
             .corner_radius(12.0)
             .inner_margin(16.0)
             .show(ui, |ui| {
@@ -908,7 +1016,7 @@ impl LieneApp {
                                     .range(1..=9)
                                     .speed(0.1),
                             );
-                            ui.label(RichText::new("1–9").color(MUTED).small());
+                            ui.label(RichText::new("1–9").color(palette.muted).small());
                         });
 
                         ui.horizontal(|ui| {
@@ -931,7 +1039,7 @@ impl LieneApp {
                         let (width, height) = self.quality.dimensions();
                         ui.label(
                             RichText::new(format!("Output: {width} × {height} px, 2×3 in"))
-                                .color(MUTED)
+                                .color(palette.muted)
                                 .small(),
                         );
 
@@ -940,14 +1048,21 @@ impl LieneApp {
                             && self.image_path.is_some()
                             && !self.busy
                             && !self.printer_has_alert();
-                        let button = egui::Button::new(RichText::new("Print").size(19.0).strong())
+                        let button =
+                            egui::Button::new(RichText::new("Print").size(19.0).strong().color(
+                                if can_print {
+                                    Color32::WHITE
+                                } else {
+                                    palette.muted
+                                },
+                            ))
                             .min_size(egui::vec2(170.0, 44.0))
                             .fill(if can_print {
-                                Color32::from_rgb(0x2f, 0x6b, 0x9e)
+                                palette.accent
                             } else {
-                                Color32::from_rgb(0x2c, 0x30, 0x36)
+                                palette.disabled_fill
                             })
-                            .stroke(egui::Stroke::new(1.0, Color32::from_rgb(0x3c, 0x42, 0x4a)));
+                            .stroke(egui::Stroke::new(1.0, palette.border));
                         if ui.add_enabled(can_print, button).clicked() {
                             if let Some(path) = self.image_path.clone() {
                                 self.busy = true;
@@ -974,7 +1089,7 @@ impl LieneApp {
                             } else {
                                 ""
                             };
-                            ui.label(RichText::new(reason).color(MUTED).small());
+                            ui.label(RichText::new(reason).color(palette.muted).small());
                         }
 
                         ui.add_space(12.0);
@@ -991,7 +1106,7 @@ impl LieneApp {
                             Fit::Cover => "2×3 · Fill (no borders)",
                             Fit::Contain => "2×3 · Fit (white borders)",
                         };
-                        ui.label(RichText::new(caption).color(MUTED).small());
+                        ui.label(RichText::new(caption).color(palette.muted).small());
                     });
                 });
             });
@@ -1003,9 +1118,10 @@ impl LieneApp {
     }
 
     fn status_card(&mut self, ui: &mut egui::Ui) {
+        let palette = Palette::of(ui);
         let Some(status) = self.status.as_ref().and_then(parse_status) else {
             egui::Frame::new()
-                .fill(CARD)
+                .fill(palette.card)
                 .corner_radius(12.0)
                 .inner_margin(16.0)
                 .show(ui, |ui| {
@@ -1013,18 +1129,22 @@ impl LieneApp {
                     ui.horizontal(|ui| {
                         if self.connecting || self.busy {
                             ui.spinner();
-                            ui.label(RichText::new("Connecting to the printer…").color(MUTED));
+                            ui.label(
+                                RichText::new("Connecting to the printer…").color(palette.muted),
+                            );
                         } else {
-                            ui.label(RichText::new("Printer status unavailable").color(MUTED));
+                            ui.label(
+                                RichText::new("Printer status unavailable").color(palette.muted),
+                            );
                         }
                     });
                 });
             return;
         };
 
-        let (label, color) = status.headline();
+        let (label, color) = status.headline(&palette);
         egui::Frame::new()
-            .fill(CARD)
+            .fill(palette.card)
             .corner_radius(12.0)
             .inner_margin(16.0)
             .show(ui, |ui| {
@@ -1035,7 +1155,7 @@ impl LieneApp {
                         if let Some(battery) = status.battery {
                             ui.label(
                                 RichText::new(format!("Battery {battery}"))
-                                    .color(MUTED)
+                                    .color(palette.muted)
                                     .small(),
                             );
                         }
@@ -1043,13 +1163,13 @@ impl LieneApp {
                 });
                 ui.label(
                     RichText::new(format!("state {} / sub-state {}", status.state, status.sub))
-                        .color(MUTED)
+                        .color(palette.muted)
                         .small(),
                 );
                 if !status.alerts.is_empty() {
                     ui.add_space(4.0);
                     for code in &status.alerts {
-                        ui.colored_label(RED, alert_label(*code));
+                        ui.colored_label(palette.red, alert_label(*code));
                     }
                     if ui.button("Resume printer").clicked() {
                         self.send(Command::Resume);
@@ -1059,6 +1179,7 @@ impl LieneApp {
     }
 
     fn device_card(&mut self, ui: &mut egui::Ui) {
+        let palette = Palette::of(ui);
         let Some(info) = self.info.as_ref() else {
             return;
         };
@@ -1073,7 +1194,7 @@ impl LieneApp {
                 .unwrap_or("—")
         };
         egui::Frame::new()
-            .fill(CARD)
+            .fill(palette.card)
             .corner_radius(12.0)
             .inner_margin(16.0)
             .show(ui, |ui| {
@@ -1083,16 +1204,16 @@ impl LieneApp {
                     .num_columns(2)
                     .spacing([18.0, 4.0])
                     .show(ui, |ui| {
-                        ui.label(RichText::new("Model").color(MUTED));
+                        ui.label(RichText::new("Model").color(palette.muted));
                         ui.label(cell(0));
                         ui.end_row();
-                        ui.label(RichText::new("Serial").color(MUTED));
+                        ui.label(RichText::new("Serial").color(palette.muted));
                         ui.label(cell(2));
                         ui.end_row();
-                        ui.label(RichText::new("Firmware").color(MUTED));
+                        ui.label(RichText::new("Firmware").color(palette.muted));
                         ui.label(cell(4));
                         ui.end_row();
-                        ui.label(RichText::new("Bluetooth").color(MUTED));
+                        ui.label(RichText::new("Bluetooth").color(palette.muted));
                         ui.label(
                             self.connected
                                 .as_ref()
@@ -1105,6 +1226,7 @@ impl LieneApp {
     }
 
     fn connection_tools(&mut self, ui: &mut egui::Ui) {
+        let palette = Palette::of(ui);
         egui::CollapsingHeader::new("Bluetooth tools")
             .default_open(false)
             .show(ui, |ui| {
@@ -1136,7 +1258,7 @@ impl LieneApp {
                     }
                     ui.label(
                         RichText::new("Results appear in the log below.")
-                            .color(MUTED)
+                            .color(palette.muted)
                             .small(),
                     );
                 });
@@ -1161,7 +1283,8 @@ impl LieneApp {
         };
 
         let state = job.state.unwrap_or(3);
-        let (state_label, color) = job_state_label(state);
+        let palette = Palette::of(ui);
+        let (state_label, color) = job_state_label(state, &palette);
         ui.horizontal(|ui| {
             ui.colored_label(color, format!("Job #{}: {state_label}", job.id));
             if state == 3 {
@@ -1182,7 +1305,7 @@ impl LieneApp {
         if state == 3 {
             ui.label(
                 RichText::new(format!("Printing page {}", job.page.max(1)))
-                    .color(MUTED)
+                    .color(palette.muted)
                     .small(),
             );
         }
@@ -1190,7 +1313,7 @@ impl LieneApp {
             let seconds = job.print_time_ms as f32 / 1000.0;
             ui.label(
                 RichText::new(format!("Finished in {seconds:.1} s"))
-                    .color(GREEN)
+                    .color(palette.green)
                     .small(),
             );
         }
@@ -1200,7 +1323,7 @@ impl LieneApp {
                     "reason {reason}, {total_frames} frames",
                     total_frames = job.total_frames
                 ))
-                .color(MUTED)
+                .color(palette.muted)
                 .small(),
             );
         }
@@ -1217,6 +1340,7 @@ impl LieneApp {
     }
 
     fn log_panel(&mut self, ui: &mut egui::Ui) {
+        let palette = Palette::of(ui);
         egui::CollapsingHeader::new("Log")
             .default_open(false)
             .show(ui, |ui| {
@@ -1225,7 +1349,7 @@ impl LieneApp {
                     .stick_to_bottom(true)
                     .show(ui, |ui| {
                         for line in &self.log {
-                            ui.label(RichText::new(line).monospace().small().color(MUTED));
+                            ui.label(RichText::new(line).monospace().small().color(palette.muted));
                         }
                     });
             });
@@ -1297,32 +1421,34 @@ impl eframe::App for LieneApp {
             .fill(ui.visuals().panel_fill)
             .inner_margin(18.0)
             .show(ui, |ui| {
-                egui::ScrollArea::vertical()
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        self.top_bar(ui);
-                        ui.add_space(6.0);
-                        self.error_banner(ui);
-                        ui.add_space(6.0);
+                let mut scroll = egui::ScrollArea::vertical().auto_shrink([false, false]);
+                if self.pin_scroll_top {
+                    scroll = scroll.vertical_scroll_offset(0.0);
+                }
+                scroll.show(ui, |ui| {
+                    self.top_bar(ui);
+                    ui.add_space(6.0);
+                    self.error_banner(ui);
+                    ui.add_space(6.0);
 
-                        ui.horizontal_top(|ui| {
-                            let total_width = ui.available_width();
-                            let right_width = (total_width - 420.0 - 14.0 - 12.0).max(360.0);
+                    ui.horizontal_top(|ui| {
+                        let total_width = ui.available_width();
+                        let right_width = (total_width - 420.0 - 14.0 - 12.0).max(360.0);
 
-                            ui.vertical(|ui| {
-                                ui.set_width(420.0);
-                                self.photo_panel(ui);
-                            });
-                            ui.add_space(14.0);
-                            ui.vertical(|ui| {
-                                ui.set_width(right_width);
-                                self.settings_panel(ui);
-                            });
+                        ui.vertical(|ui| {
+                            ui.set_width(420.0);
+                            self.photo_panel(ui);
                         });
-
-                        ui.add_space(10.0);
-                        self.log_panel(ui);
+                        ui.add_space(14.0);
+                        ui.vertical(|ui| {
+                            ui.set_width(right_width);
+                            self.settings_panel(ui);
+                        });
                     });
+
+                    ui.add_space(10.0);
+                    self.log_panel(ui);
+                });
             });
     }
 }
@@ -1650,18 +1776,18 @@ struct StatusView {
 }
 
 impl StatusView {
-    fn headline(&self) -> (&'static str, Color32) {
+    fn headline(&self, palette: &Palette) -> (&'static str, Color32) {
         if let Some(code) = self.alerts.first() {
-            return (alert_label(*code), RED);
+            return (alert_label(*code), palette.red);
         }
         match self.state {
-            10 => ("Initializing", AMBER),
-            20 => ("Ready", GREEN),
-            30 => ("Sleeping", MUTED),
-            40 => ("Printing", AMBER),
-            50 => ("Powered off", MUTED),
-            60 => ("Printer error", RED),
-            _ => ("Unknown state", MUTED),
+            10 => ("Initializing", palette.amber),
+            20 => ("Ready", palette.green),
+            30 => ("Sleeping", palette.muted),
+            40 => ("Printing", palette.amber),
+            50 => ("Powered off", palette.muted),
+            60 => ("Printer error", palette.red),
+            _ => ("Unknown state", palette.muted),
         }
     }
 }
@@ -1709,13 +1835,13 @@ fn alert_label(code: u32) -> &'static str {
     }
 }
 
-fn job_state_label(state: u32) -> (&'static str, Color32) {
+fn job_state_label(state: u32, palette: &Palette) -> (&'static str, Color32) {
     match state {
-        3 => ("Printing", AMBER),
-        7 => ("Aborted", RED),
-        8 => ("Canceled", RED),
-        9 => ("Finished", GREEN),
-        _ => ("Pending", MUTED),
+        3 => ("Printing", palette.amber),
+        7 => ("Aborted", palette.red),
+        8 => ("Canceled", palette.red),
+        9 => ("Finished", palette.green),
+        _ => ("Pending", palette.muted),
     }
 }
 

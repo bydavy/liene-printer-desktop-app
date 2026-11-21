@@ -1,5 +1,25 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Light and dark themes that follow the system appearance, with a dedicated
+  palette for each (including theme-aware cards, status colors, buttons, and
+  error banners).
+
+### Fixed
+
+- The app no longer falls back to unstyled white panels in Light Mode; both
+  themes follow the OS appearance and the custom design.
+- Long connection errors now wrap within the error banner instead of
+  squeezing and truncating the **Resume printer** and **Dismiss** buttons.
+
+### Changed
+
+- The macOS disk image is now named `Liene-Desktop-App-<version>-macos.dmg`,
+  matching the platform suffix used by the Linux and Windows packages.
+
 ## [0.3.0] - 2026-11-21
 
 ### Changed
