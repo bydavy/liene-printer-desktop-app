@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.100.0
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Tests
+        run: cargo test --workspace --locked
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build universal app bundle
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: ./scripts/bundle-macos.sh --universal
+
+      - name: Verify universal binaries
+        run: |
+          lipo -info "dist/Liene N200 Pro.app/Contents/MacOS/liene-n200-app"
+          lipo -info "dist/Liene N200 Pro.app/Contents/MacOS/liene-n200"
+          codesign --verify --deep --strict "dist/Liene N200 Pro.app"
+
+      - name: Build DMG
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: ./scripts/make-dmg.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Liene-N200-Pro-${{ steps.version.outputs.version }}
+          path: |
+            dist/Liene-N200-Pro-*.dmg
+            dist/Liene-N200-Pro-*.dmg.sha256
+          if-no-files-found: error
+
+      # The app is ad-hoc signed. For warning-free distribution, add Developer
+      # ID signing and notarization here using repository secrets.
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Liene-N200-Pro-*.dmg
+            dist/Liene-N200-Pro-*.dmg.sha256
+          fail_on_unmatched_files: true
+          body: |
+            Universal macOS build for the Liene Pearl N200 Pro (Apple Silicon + Intel).
+
+            Requirements: macOS 13+, a paired N200 Pro, and photo paper/ribbon.
+
+            The app is ad-hoc signed, not notarized. On first launch, right-click
+            the app in Finder and choose Open, or clear the quarantine flag once:
+
+                xattr -dr com.apple.quarantine "/Applications/Liene N200 Pro.app"
+
+            See the README for pairing, editing, and CLI usage. The attached
+            .sha256 file verifies the download.

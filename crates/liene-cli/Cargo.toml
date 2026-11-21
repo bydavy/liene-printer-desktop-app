@@ -1,0 +1,23 @@
+[package]
+name = "liene-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Command line driver for Liene Pearl N200 Pro photo printers"
+
+[[bin]]
+name = "liene-n200"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+liene-client = { path = "../liene-client" }
+liene-protocol = { path = "../liene-protocol" }
+serde_json = "1"
+tokio = { version = "1", features = ["rt", "time"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-foundation = "0.3"

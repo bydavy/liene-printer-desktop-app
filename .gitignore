@@ -1,0 +1,10 @@
+/target
+/reverse
+/tools
+/build
+/dist
+.DS_Store
+*.log
+.env
+.idea/
+.vscode/

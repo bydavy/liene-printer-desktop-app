@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = ["crates/liene-protocol", "crates/liene-client", "crates/liene-cli", "crates/liene-gui"]
+
+# waterkit-bluetooth 0.3.0 overrides an RFCOMM selector that the current
+# objc2-io-bluetooth protocol no longer declares, which trips objc2's debug
+# assertion. The vendor copy removes that dead override (see the note there).
+[patch.crates-io]
+waterkit-bluetooth = { path = "vendor/waterkit-bluetooth" }
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.95"
+repository = "https://github.com/bydavy/liene-printer-desktop-app"
+
+[profile.release]
+lto = "thin"

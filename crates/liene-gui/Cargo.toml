@@ -1,0 +1,20 @@
+[package]
+name = "liene-gui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Desktop photo printer app for the Liene Pearl N200 Pro"
+
+[[bin]]
+name = "liene-n200-app"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+eframe = "0.37"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+liene-client = { path = "../liene-client" }
+rfd = "0.18"
+serde_json = "1"
