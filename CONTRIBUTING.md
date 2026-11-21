@@ -26,7 +26,7 @@ are produced by:
 
 ```sh
 ./scripts/bundle-macos.sh
-VERSION=0.1.0 ./scripts/make-dmg.sh
+VERSION=0.2.0 ./scripts/make-dmg.sh
 ```
 
 Hardware testing requires the printer; unit tests must pass without it.

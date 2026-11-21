@@ -306,7 +306,7 @@ cargo test
 ./scripts/bundle-macos.sh --universal
 
 # Compressed DMG with an /Applications shortcut
-VERSION=0.1.0 ./scripts/make-dmg.sh
+VERSION=0.2.0 ./scripts/make-dmg.sh
 ```
 
 Outputs:
@@ -319,7 +319,7 @@ Outputs:
 Linux/Windows packages (untested):
 
 ```sh
-VERSION=0.1.0 ./scripts/bundle-linux.sh          # on Linux
+VERSION=0.2.0 ./scripts/bundle-linux.sh          # on Linux
 pwsh ./scripts/bundle-windows.ps1                # on Windows; VERSION env optional
 ```
 
