@@ -36,7 +36,21 @@ jobs:
       - name: Build universal app bundle
         env:
           VERSION: ${{ steps.version.outputs.version }}
-        run: ./scripts/bundle-macos.sh --universal
+        run: |
+          set -o pipefail
+          ./scripts/bundle-macos.sh --universal 2>&1 | tee "$RUNNER_TEMP/bundle.log"
+
+      - name: Report bundle failure
+        if: failure()
+        run: |
+          if [[ -f "$RUNNER_TEMP/bundle.log" ]]; then
+            tail -100 "$RUNNER_TEMP/bundle.log" | while IFS= read -r line; do
+              line="${line//'%'/'%25'}"
+              line="${line//$'\r'/'%0D'}"
+              line="${line//$'\n'/'%0A'}"
+              echo "::error title=universal-bundle::$line"
+            done
+          fi
 
       - name: Verify universal binaries
         run: |

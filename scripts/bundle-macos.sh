@@ -28,7 +28,18 @@ if [[ "$UNIVERSAL" == "1" ]]; then
         exit 1
     }
     CARGO_BIN="${CARGO:-$(rustup which cargo)}"
-    rustup target add aarch64-apple-darwin x86_64-apple-darwin >/dev/null
+    # Invoke the toolchain's real compiler, not the rustup shim. The shim can
+    # start a channel sync / rust-src download while cargo is building, which
+    # races with the build and fails with a rustup rename error.
+    export RUSTC="$(rustup which rustc)"
+
+    installed_targets="$(rustup target list --installed)"
+    for target in aarch64-apple-darwin x86_64-apple-darwin; do
+        if ! grep -qx "$target" <<< "$installed_targets"; then
+            rustup target add "$target"
+        fi
+    done
+
     "$CARGO_BIN" build --release --locked --target aarch64-apple-darwin -p liene-cli -p liene-gui
     "$CARGO_BIN" build --release --locked --target x86_64-apple-darwin -p liene-cli -p liene-gui
 

@@ -90,7 +90,10 @@ fn resolve_rfcomm_channel(device_id: &str, uuid: &str) -> Result<u8, BluetoothEr
 }
 
 fn open_rfcomm_socket(device_id: &str, uuid: &str) -> Result<i32, BluetoothError> {
-    let channel = resolve_rfcomm_channel(device_id, uuid)?;
+    // Liene firmware exposes SPP on RFCOMM channel 1. Some distributions no
+    // longer ship `sdptool`, and a UUID-filtered SDP search can fail; fall
+    // back to the known SPP channel for this printer family.
+    let channel = resolve_rfcomm_channel(device_id, uuid).unwrap_or(1);
     let bdaddr = parse_device_address(device_id)?;
     let family = libc::sa_family_t::try_from(libc::AF_BLUETOOTH).map_err(|_| {
         BluetoothError::ConnectionFailed(format!(

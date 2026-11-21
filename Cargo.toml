@@ -16,4 +16,4 @@ rust-version = "1.95"
 repository = "https://github.com/bydavy/liene-printer-desktop-app"
 
 [profile.release]
-lto = "thin"
+lto = false

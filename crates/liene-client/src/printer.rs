@@ -146,7 +146,7 @@ async fn open_spp_with_retry(
         || {
             format!(
                 "could not open the SPP channel to {name}. If the printer is not paired, \
-                 pair it in System Settings > Bluetooth first."
+                 pair it in your operating system's Bluetooth settings first."
             )
         },
     )
@@ -221,7 +221,7 @@ impl Printer {
         let device = device.ok_or_else(|| {
             anyhow!(
                 "no device matching '{name_prefix}' found. Power the printer on, then pair it \
-                 in System Settings > Bluetooth (or run the official Liene app once)."
+                 in your operating system's Bluetooth settings."
             )
         })?;
 

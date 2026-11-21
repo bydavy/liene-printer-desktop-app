@@ -131,5 +131,15 @@ pub async fn pair_device(address: &str) -> anyhow::Result<()> {
 
 #[cfg(not(target_os = "macos"))]
 pub async fn pair_device(_address: &str) -> anyhow::Result<()> {
-    anyhow::bail!("pairing is only implemented for macOS")
+    #[cfg(target_os = "linux")]
+    anyhow::bail!(
+        "pairing is handled by BlueZ. Run `bluetoothctl`, then `pair <MAC>`, `trust <MAC>`, \
+         and `connect <MAC>` before using liene-n200."
+    );
+    #[cfg(target_os = "windows")]
+    anyhow::bail!(
+        "pair the printer in Windows Settings > Bluetooth & devices > Add device, then retry."
+    );
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    anyhow::bail!("pairing is not implemented on this platform; use the OS Bluetooth settings.");
 }

@@ -14,6 +14,18 @@ printer directly over Bluetooth Classic SPP — no vendor app required.
 > for a printer we own. No vendor app code, firmware, or assets are
 > redistributed. Liene and Pearl are trademarks of their respective owners.
 
+> **Platform status:** macOS is hardware-tested. Linux and Windows transports
+> are implemented and compile-tested in CI, but are **untested with a real
+> printer**. Help wanted — see below.
+
+## Platform support
+
+| Platform | Status |
+| --- | --- |
+| macOS 13+ (Apple Silicon + Intel) | **Tested** on an N200 Pro |
+| Linux x86_64 | **Untested** — BlueZ/RFCOMM implementation, CI build, help wanted |
+| Windows 10/11 x86_64 | **Untested** — WinRT/RFCOMM implementation, CI build, help wanted |
+
 ## Highlights
 
 - **Native macOS app** (egui/Rust) with live printer status, battery, alerts,
@@ -29,13 +41,40 @@ printer directly over Bluetooth Classic SPP — no vendor app required.
   checksums, JSON-RPC methods, media constants, and the RFCOMM channel.
 - **Hardware-verified** on an N200 Pro (model DMP130, firmware 1.0.6_1040).
 
+## Help wanted: testers and more printers
+
+**I'm looking for people with different Liene/Hannto printers to help extend
+support.** The N200 Pro (DMP130) is the only model I can test; the protocol may
+work on related models, but that is unverified.
+
+Known models from the vendor app's capability table:
+
+| Model | Internal name | PID | Status |
+| --- | --- | --- | --- |
+| Liene Pearl N200 Pro | `cumin` | 3015 | **Tested** |
+| Liene PixCut S1 | `perilla` | 3101 | Untested; help wanted |
+| Liene Amber M110/M210 | `laurel` | 3007 | Untested; help wanted |
+| Liene Photo Printer | `fennel` | 3005 | Untested; help wanted |
+| Portable Photo Printer | `kiwi` | 1021 | Untested; help wanted |
+
+I'm also looking for **Linux and Windows testers** with an N200 Pro.
+
+If you can help, open a
+[Printer support report](https://github.com/bydavy/liene-printer-desktop-app/issues/new?template=printer-support.md)
+with the model, PID, firmware, OS, what works (status/info/print), and a
+`--debug` log. Even a "cannot connect" report is useful. Please remove MAC
+addresses, serial numbers, and personal file paths first.
+
 ## Requirements
 
-- macOS 13 or newer (Apple Silicon or Intel; releases are universal).
+- macOS 13 or newer (tested; Apple Silicon or Intel), or Linux/Windows
+  (untested).
 - A Liene Pearl N200 Pro and photo paper/ribbon.
-- The printer paired with the Mac over Bluetooth.
+- The printer paired with your OS's Bluetooth.
 
 ## Install
+
+### macOS (tested)
 
 Download the latest DMG from
 [Releases](https://github.com/bydavy/liene-printer-desktop-app/releases/latest), open it,
@@ -59,6 +98,46 @@ printed on the label).
 The first connection after the printer's Classic link has dropped can take
 10–20 seconds while macOS pages the device. The app shows “Connecting…” and
 retries automatically.
+
+### Linux (untested)
+
+A Linux x86_64 build is produced by CI as an **untested** artifact (GitHub
+Actions → CI → `linux-untested`) or you can build it locally:
+
+```sh
+# BlueZ is used for discovery; `sdptool` is optional.
+# The transport falls back to the printer's known SPP RFCOMM channel 1.
+cargo build --release -p liene-cli -p liene-gui
+cp target/release/liene-n200 target/release/liene-n200-app /some/folder/
+cd /some/folder && ./liene-n200-app
+```
+
+Pair first with BlueZ:
+
+```sh
+bluetoothctl --timeout 30 pair <MAC>
+bluetoothctl trust <MAC>
+bluetoothctl connect <MAC>
+```
+
+The GUI looks for `liene-n200` next to its own executable. If you use the
+tarball, `./run.sh` does this for you. Linux support is **untested**; please
+report results.
+
+### Windows (untested)
+
+A Windows x86_64 build is produced by CI as an **untested** artifact (GitHub
+Actions → CI → `windows-untested`) or built with:
+
+```powershell
+cargo build --release -p liene-cli -p liene-gui
+# keep liene-n200.exe and liene-n200-app.exe together
+.\target\release\liene-n200-app.exe
+```
+
+Pair the printer in **Settings → Bluetooth & devices → Add device** first.
+Windows support is **untested**; SmartScreen may warn because the build is not
+code-signed.
 
 ## Usage
 
@@ -193,6 +272,16 @@ Outputs:
 - `dist/Liene N200 Pro.app`
 - `dist/Liene-N200-Pro-<version>.dmg` and `.sha256`
 
+Linux/Windows packages (untested):
+
+```sh
+VERSION=0.1.0 ./scripts/bundle-linux.sh          # on Linux
+pwsh ./scripts/bundle-windows.ps1                # on Windows; VERSION env optional
+```
+
+CI also publishes `linux-untested` and `windows-untested` artifacts on every
+run.
+
 Run the app directly with `cargo run -p liene-gui` or
 `open "dist/Liene N200 Pro.app"`.
 
@@ -209,10 +298,11 @@ tests cover framing, chunking, the edit/zoom model, and the image pipeline.
 
 ## Releasing
 
-The release workflow (`.github/workflows/release.yml`) builds a universal
-`.app` + DMG, ad-hoc signs them, and attaches the DMG and SHA-256 to a GitHub
-Release when a `v*` tag is pushed. Bump the workspace version and changelog
-first:
+The release workflow (`.github/workflows/release.yml`) builds a macOS
+universal `.app` + DMG, ad-hoc signs them, and attaches the DMG and SHA-256 to
+a GitHub Release when a `v*` tag is pushed. Linux/Windows builds are currently
+CI artifacts only; they will be added to official releases after testers
+confirm the transport. Bump the workspace version and changelog first:
 
 ```sh
 # edit Cargo.toml [workspace.package] version and CHANGELOG.md
@@ -227,18 +317,21 @@ in the workflow if you have an Apple Developer account.
 
 ## Limitations
 
-- macOS only. The protocol crate is portable, but the SPP transport is
-  implemented for macOS (IOBluetooth). Linux (BlueZ RFCOMM) and Windows
-  (Winsock RFCOMM) transports are not implemented yet.
+- macOS is the only hardware-tested platform. Linux (BlueZ) and Windows
+  (WinRT) transports are implemented and compile-tested in CI, but have not
+  been verified with a printer. Help wanted.
+- Pairing on Linux/Windows is handled by the OS tools; the `pair` command is
+  macOS-only.
 - The N200 Pro uses Classic SPP. A pure browser/WASM frontend cannot print
   directly because Web Bluetooth only supports BLE GATT. A local native bridge
   (or a future BLE GATT path, if the printer exposes one) would be required.
 - The Diffie-Hellman/encryption path in the vendor app is not implemented;
   it is disabled by default for this model and the printer accepts plaintext
   frames.
-- Releases are ad-hoc signed, so Gatekeeper warns on first launch.
+- macOS releases are ad-hoc signed, so Gatekeeper warns on first launch.
+  Linux/Windows CI artifacts are unsigned.
 - Only the N200 Pro is hardware-tested. Related Hannto printers may share the
-  protocol, but that is unverified.
+  protocol, but that is unverified. Help wanted.
 
 ## Troubleshooting
 
@@ -269,8 +362,8 @@ Built with [eframe/egui](https://github.com/emilk/egui),
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Hardware reports, protocol captures,
-and ports to other platforms are welcome. Security notes are in
+See [CONTRIBUTING.md](CONTRIBUTING.md). Testers with other printers and
+Linux/Windows testers are especially welcome. Security notes are in
 [SECURITY.md](SECURITY.md).
 
 ## License

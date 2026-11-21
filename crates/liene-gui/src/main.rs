@@ -1,3 +1,5 @@
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Stdio};
@@ -1327,11 +1329,19 @@ impl eframe::App for LieneApp {
 
 fn spawn_helper() -> anyhow::Result<(ChildStdin, Child, Receiver<Event>)> {
     let helper = locate_helper()?;
-    let mut child = std::process::Command::new(&helper)
+    let mut command = std::process::Command::new(&helper);
+    command
         .arg("serve")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    let mut child = command
         .spawn()
         .map_err(|err| anyhow::anyhow!("could not start {} serve: {err}", helper.display()))?;
 
@@ -1375,11 +1385,12 @@ fn locate_helper() -> anyhow::Result<PathBuf> {
     let dir = exe
         .parent()
         .ok_or_else(|| anyhow::anyhow!("executable has no parent directory"))?;
-    let candidate = dir.join("liene-n200");
+    let name = format!("liene-n200{}", std::env::consts::EXE_SUFFIX);
+    let candidate = dir.join(&name);
     if candidate.is_file() {
         return Ok(candidate);
     }
-    Ok(PathBuf::from("liene-n200"))
+    Ok(PathBuf::from(name))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

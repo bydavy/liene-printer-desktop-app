@@ -10,13 +10,33 @@ permissions:
 
 jobs:
   test:
-    runs-on: macos-15
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            name: macOS (tested)
+          - os: ubuntu-24.04
+            name: Linux (untested)
+          - os: windows-latest
+            name: Windows (untested)
     steps:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@1.100.0
         with:
           components: rustfmt, clippy
+
+      - name: Install Linux GUI dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libdbus-1-dev pkg-config \
+            libx11-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libwayland-dev libgl1-mesa-dev
 
       - uses: Swatinem/rust-cache@v2
 
@@ -28,3 +48,69 @@ jobs:
 
       - name: Tests
         run: cargo test --workspace --locked
+
+      - name: Package Linux artifact (untested)
+        if: runner.os == 'Linux'
+        env:
+          VERSION: 0.0.0-ci
+        run: ./scripts/bundle-linux.sh
+
+      - name: Upload Linux artifact (untested)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-untested
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+      - name: Package Windows artifact (untested)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          VERSION: 0.0.0-ci
+        run: ./scripts/bundle-windows.ps1
+
+      - name: Upload Windows artifact (untested)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-untested
+          path: dist/*.zip
+          if-no-files-found: error
+
+  package-macos:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.100.0
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build universal app bundle
+        env:
+          VERSION: 0.0.0-ci
+        run: |
+          set -o pipefail
+          ./scripts/bundle-macos.sh --universal 2>&1 | tee "$RUNNER_TEMP/bundle.log"
+
+      - name: Report bundle failure
+        if: failure()
+        run: |
+          if [[ -f "$RUNNER_TEMP/bundle.log" ]]; then
+            tail -100 "$RUNNER_TEMP/bundle.log" | while IFS= read -r line; do
+              line="${line//'%'/'%25'}"
+              line="${line//$'\r'/'%0D'}"
+              line="${line//$'\n'/'%0A'}"
+              echo "::error title=universal-bundle::$line"
+            done
+          fi
+
+      - name: Verify universal binaries
+        run: |
+          lipo -info "dist/Liene N200 Pro.app/Contents/MacOS/liene-n200-app"
+          lipo -info "dist/Liene N200 Pro.app/Contents/MacOS/liene-n200"
+          codesign --verify --deep --strict "dist/Liene N200 Pro.app"
