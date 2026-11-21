@@ -7,7 +7,8 @@
 - Experimental Linux (BlueZ RFCOMM) and Windows (WinRT RFCOMM) transports.
   These are compile-tested and packaged in CI but have not been hardware-tested
   with an N200 Pro yet. Testers wanted.
-- Linux `.tar.gz` and Windows `.zip` packaging scripts and CI artifacts.
+- Linux `.tar.gz` and Windows `.zip` packaging scripts; CI artifacts and
+  release assets (clearly marked untested).
 - CI matrix for macOS, Linux, and Windows, plus a macOS universal-bundle build.
 - Printer-support issue template and a "help wanted" section listing related
   Liene/Hannto models that need testers.

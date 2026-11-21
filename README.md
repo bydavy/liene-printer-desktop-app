@@ -143,8 +143,9 @@ retries automatically.
 
 ### Linux (untested)
 
-A Linux x86_64 build is produced by CI as an **untested** artifact (GitHub
-Actions → CI → `linux-untested`) or you can build it locally:
+A Linux x86_64 build is included in [Releases](https://github.com/bydavy/liene-printer-desktop-app/releases/latest)
+as an **untested** asset, is produced by CI as an untested artifact (GitHub
+Actions → CI → `linux-untested`), or can be built locally:
 
 ```sh
 # BlueZ is used for discovery; `sdptool` is optional.
@@ -168,8 +169,9 @@ report results.
 
 ### Windows (untested)
 
-A Windows x86_64 build is produced by CI as an **untested** artifact (GitHub
-Actions → CI → `windows-untested`) or built with:
+A Windows x86_64 build is included in [Releases](https://github.com/bydavy/liene-printer-desktop-app/releases/latest)
+as an **untested** asset, is produced by CI as an untested artifact (GitHub
+Actions → CI → `windows-untested`), or built with:
 
 ```powershell
 cargo build --release -p liene-cli -p liene-gui
@@ -340,11 +342,15 @@ tests cover framing, chunking, the edit/zoom model, and the image pipeline.
 
 ## Releasing
 
-The release workflow (`.github/workflows/release.yml`) builds a macOS
-universal `.app` + DMG, ad-hoc signs them, and attaches the DMG and SHA-256 to
-a GitHub Release when a `v*` tag is pushed. Linux/Windows builds are currently
-CI artifacts only; they will be added to official releases after testers
-confirm the transport. Bump the workspace version and changelog first:
+The release workflow (`.github/workflows/release.yml`) builds and attaches:
+
+- a macOS universal `.app` + DMG (hardware-tested; ad-hoc signed),
+- a Linux x86_64 `.tar.gz` (**untested**),
+- a Windows x86_64 `.zip` (**untested**),
+
+plus SHA-256 files, when a `v*` tag is pushed. Linux/Windows packages are
+published for testers and clearly labeled untested. Bump the workspace version
+and changelog first:
 
 ```sh
 # edit Cargo.toml [workspace.package] version and CHANGELOG.md

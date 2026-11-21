@@ -7,10 +7,26 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-dev" >> "$GITHUB_OUTPUT"
+          fi
+
+  macos:
+    name: macOS universal DMG (tested)
+    needs: prepare
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
@@ -24,18 +40,9 @@ jobs:
       - name: Tests
         run: cargo test --workspace --locked
 
-      - name: Determine version
-        id: version
-        run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-          else
-            echo "version=0.0.0-dev" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Build universal app bundle
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -o pipefail
           ./scripts/bundle-macos.sh --universal 2>&1 | tee "$RUNNER_TEMP/bundle.log"
@@ -60,37 +67,132 @@ jobs:
 
       - name: Build DMG
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: ./scripts/make-dmg.sh
 
-      - name: Upload artifact
+      - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Liene-N200-Pro-${{ steps.version.outputs.version }}
+          name: macos-dmg
           path: |
             dist/Liene-N200-Pro-*.dmg
             dist/Liene-N200-Pro-*.dmg.sha256
           if-no-files-found: error
 
-      # The app is ad-hoc signed. For warning-free distribution, add Developer
-      # ID signing and notarization here using repository secrets.
+  linux:
+    name: Linux package (untested)
+    needs: prepare
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.100.0
+
+      - name: Install GUI dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libdbus-1-dev pkg-config \
+            libx11-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            libwayland-dev libgl1-mesa-dev
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Tests
+        run: cargo test --workspace --locked
+
+      - name: Package Linux artifact (untested)
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: ./scripts/bundle-linux.sh
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-package
+          path: |
+            dist/Liene-N200-Pro-*.tar.gz
+            dist/Liene-N200-Pro-*.tar.gz.sha256
+          if-no-files-found: error
+
+  windows:
+    name: Windows package (untested)
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.100.0
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Tests
+        run: cargo test --workspace --locked
+
+      - name: Package Windows artifact (untested)
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: ./scripts/bundle-windows.ps1
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-package
+          path: |
+            dist/Liene-N200-Pro-*.zip
+            dist/Liene-N200-Pro-*.zip.sha256
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: [prepare, macos, linux, windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List release files
+        run: ls -lh dist
+
       - name: Publish GitHub release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/Liene-N200-Pro-*.dmg
             dist/Liene-N200-Pro-*.dmg.sha256
+            dist/Liene-N200-Pro-*.tar.gz
+            dist/Liene-N200-Pro-*.tar.gz.sha256
+            dist/Liene-N200-Pro-*.zip
+            dist/Liene-N200-Pro-*.zip.sha256
           fail_on_unmatched_files: true
           body: |
-            Universal macOS build for the Liene Pearl N200 Pro (Apple Silicon + Intel).
+            ## Liene N200 Pro ${{ needs.prepare.outputs.version }}
 
-            Requirements: macOS 13+, a paired N200 Pro, and photo paper/ribbon.
-
-            The app is ad-hoc signed, not notarized. On first launch, right-click
-            the app in Finder and choose Open, or clear the quarantine flag once:
+            **macOS 13+ universal DMG** (Apple Silicon + Intel) — hardware-tested
+            on the N200 Pro. The app is ad-hoc signed, not notarized. On first
+            launch, right-click the app and choose Open, or clear quarantine:
 
                 xattr -dr com.apple.quarantine "/Applications/Liene N200 Pro.app"
 
-            See the README for pairing, editing, and CLI usage. The attached
-            .sha256 file verifies the download.
+            **Linux x86_64 tar.gz** — **UNTESTED**. Pair with BlueZ
+            (`bluetoothctl --timeout 30 pair <MAC>`, `trust <MAC>`, `connect <MAC>`),
+            extract, and run `./run.sh`. Help wanted.
+
+            **Windows x86_64 zip** — **UNTESTED**. Pair in Settings → Bluetooth &
+            devices, keep both `.exe` files together, and run
+            `liene-n200-app.exe`. SmartScreen may warn because it is unsigned.
+            Help wanted.
+
+            Testers with other Liene/Hannto printers: please open a
+            [Printer support report](https://github.com/bydavy/liene-printer-desktop-app/issues/new?template=printer-support.md)
+            with model, PID, firmware, OS, and a `--debug` log.
+
+            See the README for pairing, editing, CLI usage, and SHA-256
+            verification.
