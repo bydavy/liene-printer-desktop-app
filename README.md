@@ -3,6 +3,8 @@
 [![CI](https://github.com/bydavy/liene-printer-desktop-app/actions/workflows/ci.yml/badge.svg)](https://github.com/bydavy/liene-printer-desktop-app/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/bydavy/liene-printer-desktop-app?display_name=tag)](https://github.com/bydavy/liene-printer-desktop-app/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20me-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/davyleggieri)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support%20me-ffdd00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/davyleggieri)
 
 An unofficial, open-source **cross-platform desktop app and CLI for the
 Liene/Hannto photo-printer family**, written in Rust. It talks to the printer
