@@ -1,12 +1,14 @@
-# Liene N200 Pro for macOS
+# Liene N200 Pro
 
 [![CI](https://github.com/bydavy/liene-printer-desktop-app/actions/workflows/ci.yml/badge.svg)](https://github.com/bydavy/liene-printer-desktop-app/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/bydavy/liene-printer-desktop-app?display_name=tag)](https://github.com/bydavy/liene-printer-desktop-app/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-An unofficial, open-source macOS app and CLI for the **Liene Pearl N200 Pro**
-(DMP130) dye-sublimation photo printer, written in Rust. It talks to the
-printer directly over Bluetooth Classic SPP — no vendor app required.
+An unofficial, open-source **cross-platform desktop app and CLI** for the
+**Liene Pearl N200 Pro** (DMP130) dye-sublimation photo printer, written in
+Rust. It talks to the printer directly over Bluetooth Classic SPP — no vendor
+app required. macOS is hardware-tested; Linux and Windows are implemented but
+untested.
 
 ![Editor](docs/editor.png)
 
@@ -70,8 +72,8 @@ that is the only route to a pure browser app.
 
 ## Highlights
 
-- **Native macOS app** (egui/Rust) with live printer status, battery, alerts,
-  and model/serial/firmware information.
+- **Native desktop app** (egui/Rust) for macOS, Linux, and Windows, with live
+  printer status, battery, alerts, and model/serial/firmware information.
 - **Non-destructive editing**: rotate in 90° steps, freeform crop, **Lock 2:3**
   with a 1×–8× zoom/framing slider, and a live **print preview** with white
   borders for Fit.
@@ -285,15 +287,18 @@ vendor/waterkit-bluetooth/  patched transport (direct RFCOMM channel 1)
 docs/PROTOCOL.md            recovered protocol reference
 ```
 
-The GUI spawns the CLI in `serve` mode and talks to it over JSON lines. This
-keeps IOBluetooth callbacks on a process whose main run loop actually services
-them; winit/eframe's macOS loop does not reliably do so. Both binaries are
-bundled in the `.app`.
+The GUI spawns the CLI in `serve` mode and talks to it over JSON lines. On
+macOS this keeps IOBluetooth callbacks on a process whose main run loop
+services them; winit/eframe's macOS loop does not reliably do so. The same
+helper boundary is used on Linux and Windows, and both binaries are shipped
+together in the macOS `.app` and the Linux/Windows packages.
 
 ## Build from source
 
-Requirements: macOS 13+, Xcode Command Line Tools, Rust **1.95+**. Use a
-rustup-managed toolchain for universal builds.
+Requirements: Rust **1.95+**. macOS builds need macOS 13+ and Xcode Command
+Line Tools; Linux builds need BlueZ and the GUI development libraries; Windows
+builds use the Windows SDK. Use a rustup-managed toolchain for universal macOS
+builds.
 
 ```sh
 cargo build --release
