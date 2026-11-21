@@ -377,6 +377,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Testers with other printers and
 Linux/Windows testers are especially welcome. Security notes are in
 [SECURITY.md](SECURITY.md).
 
+## Support the project
+
+If this app is useful to you, you can buy me a coffee — completely optional:
+
+- [Ko-fi](https://ko-fi.com/davyleggieri)
+- [Buy Me a Coffee](https://www.buymeacoffee.com/davyleggieri)
+
+Bug reports, printer test results, and pull requests are just as valuable.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
