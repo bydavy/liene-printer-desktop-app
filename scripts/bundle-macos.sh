@@ -4,7 +4,7 @@
 # Host build:      ./scripts/bundle-macos.sh
 # Universal build: ./scripts/bundle-macos.sh --universal
 #
-# VERSION=0.3.1 can be supplied by the release workflow.
+# VERSION=0.3.2 can be supplied by the release workflow.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,7 +15,7 @@ if [[ "${1:-}" == "--universal" ]]; then
     UNIVERSAL=1
 fi
 
-VERSION="${VERSION:-0.3.1}"
+VERSION="${VERSION:-0.3.2}"
 VERSION="${VERSION#v}"
 
 BIN_DIR="$ROOT/target/liene-bundle"

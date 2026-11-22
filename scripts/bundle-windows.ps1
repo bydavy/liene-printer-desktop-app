@@ -3,7 +3,7 @@
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 
-$Version = if ($env:VERSION) { $env:VERSION } else { "0.3.1" }
+$Version = if ($env:VERSION) { $env:VERSION } else { "0.3.2" }
 $Version = $Version -replace '^v', ''
 
 cargo build --release --locked -p liene-cli -p liene-gui
