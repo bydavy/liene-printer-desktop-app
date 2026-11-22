@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.3.3] - 2026-11-22
 
 ### Added
 
@@ -11,6 +11,12 @@
 - A Borders checkbox (on by default) and an explicit Randomize button.
 - Opt-in authenticated loopback UI control channel (`--control`) and
   `liene-control` CLI for deterministic collage/editor tests and screenshots.
+
+### Fixed
+
+- The collage preview now selects the same area of each photo as the frame
+  editor and the print. Horizontal panning also works at zoom 1, where the
+  preview previously ignored it.
 
 ## [0.3.2] - 2026-11-22
 

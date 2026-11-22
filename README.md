@@ -287,7 +287,7 @@ cargo test
 ./scripts/bundle-macos.sh --universal
 
 # Compressed DMG with an /Applications shortcut
-VERSION=0.3.2 ./scripts/make-dmg.sh
+VERSION=0.3.3 ./scripts/make-dmg.sh
 ```
 
 Outputs:
@@ -301,7 +301,7 @@ Outputs:
 Linux/Windows packages (untested):
 
 ```sh
-VERSION=0.3.2 ./scripts/bundle-linux.sh          # on Linux
+VERSION=0.3.3 ./scripts/bundle-linux.sh          # on Linux
 pwsh ./scripts/bundle-windows.ps1                # on Windows; VERSION env optional
 ```
 
@@ -347,9 +347,9 @@ and changelog first:
 
 ```sh
 # edit Cargo.toml [workspace.package] version and CHANGELOG.md
-git commit -am "Release v0.3.2"
-git tag v0.3.2
-git push origin main v0.3.2
+git commit -am "Release v0.3.3"
+git tag v0.3.3
+git push origin main v0.3.3
 ```
 
 It can also be run manually (`workflow_dispatch`) to produce a CI artifact.

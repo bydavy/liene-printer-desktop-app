@@ -2486,14 +2486,13 @@ fn frame_uv(texture_size: egui::Vec2, dst_aspect: f32, frame: PhotoFrame) -> egu
         (1.0, source_aspect / dst_aspect)
     };
     let zoom = frame.zoom.clamp(1.0, 8.0);
-    let crop_width = base_width / zoom;
-    let crop_height = base_height / zoom;
-    let base_x = (1.0 - base_width) / 2.0;
-    let base_y = (1.0 - base_height) / 2.0;
-    let slack_x = base_width - crop_width;
-    let slack_y = base_height - crop_height;
-    let x = base_x + slack_x / 2.0 + frame.pan_x.clamp(-1.0, 1.0) * slack_x / 2.0;
-    let y = base_y + slack_y / 2.0 + frame.pan_y.clamp(-1.0, 1.0) * slack_y / 2.0;
+    let crop_width = (base_width / zoom).clamp(0.0, 1.0);
+    let crop_height = (base_height / zoom).clamp(0.0, 1.0);
+    // Mirror photo_draw_rect: the photo may overflow the cell on both axes,
+    // not just inside the zoom-1 crop. Panning therefore has the same range
+    // as in the frame editor (+1 shows the left/top edge of the source).
+    let x = (1.0 - crop_width) * (1.0 - frame.pan_x.clamp(-1.0, 1.0)) / 2.0;
+    let y = (1.0 - crop_height) * (1.0 - frame.pan_y.clamp(-1.0, 1.0)) / 2.0;
     egui::Rect::from_min_max(
         egui::pos2(x, y),
         egui::pos2(x + crop_width, y + crop_height),
@@ -3011,5 +3010,106 @@ fn apply_job_state(job: &mut JobUi, value: &Value) {
     }
     if let Some(time) = object.get("print-time").and_then(Value::as_u64) {
         job.print_time_ms = time;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn crop_from_draw_rect(
+        texture: egui::Vec2,
+        viewport: egui::Vec2,
+        frame: PhotoFrame,
+    ) -> egui::Rect {
+        let draw = photo_draw_rect(texture, viewport, frame);
+        let x = -draw.left() / draw.width();
+        let y = -draw.top() / draw.height();
+        egui::Rect::from_min_size(
+            egui::pos2(x, y),
+            egui::vec2(viewport.x / draw.width(), viewport.y / draw.height()),
+        )
+    }
+
+    fn assert_close(actual: egui::Rect, expected: egui::Rect) {
+        let epsilon = 1e-4;
+        assert!(
+            (actual.left() - expected.left()).abs() < epsilon,
+            "{actual:?} != {expected:?}"
+        );
+        assert!(
+            (actual.top() - expected.top()).abs() < epsilon,
+            "{actual:?} != {expected:?}"
+        );
+        assert!(
+            (actual.width() - expected.width()).abs() < epsilon,
+            "{actual:?} != {expected:?}"
+        );
+        assert!(
+            (actual.height() - expected.height()).abs() < epsilon,
+            "{actual:?} != {expected:?}"
+        );
+    }
+
+    #[test]
+    fn collage_preview_crop_matches_the_frame_editor() {
+        let viewport_height = 1000.0;
+        for (source_width, source_height) in [(600.0, 900.0), (900.0, 600.0), (800.0, 800.0)] {
+            let texture = egui::vec2(source_width, source_height);
+            for dst_aspect in [0.2136, 2.0 / 3.0, 1.0, 1.5, 2.4] {
+                let viewport = egui::vec2(viewport_height * dst_aspect, viewport_height);
+                for zoom in [1.0, 1.7, 3.0, 8.0] {
+                    for pan_x in [-1.0, -0.37, 0.0, 0.42, 1.0] {
+                        for pan_y in [-1.0, 0.0, 0.65] {
+                            let frame = PhotoFrame {
+                                zoom,
+                                pan_x,
+                                pan_y,
+                                rotation: 0,
+                            };
+                            let expected = crop_from_draw_rect(texture, viewport, frame);
+                            let actual = frame_uv(texture, dst_aspect, frame);
+                            assert_close(actual, expected);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn collage_preview_pans_across_the_whole_photo_at_any_zoom() {
+        let texture = egui::vec2(600.0, 900.0);
+        let dst_aspect = 0.2136;
+        let centered = frame_uv(
+            texture,
+            dst_aspect,
+            PhotoFrame {
+                zoom: 1.0,
+                pan_x: 0.0,
+                ..PhotoFrame::default()
+            },
+        );
+        let left = frame_uv(
+            texture,
+            dst_aspect,
+            PhotoFrame {
+                zoom: 1.0,
+                pan_x: 1.0,
+                ..PhotoFrame::default()
+            },
+        );
+        let right = frame_uv(
+            texture,
+            dst_aspect,
+            PhotoFrame {
+                zoom: 1.0,
+                pan_x: -1.0,
+                ..PhotoFrame::default()
+            },
+        );
+        assert!(centered.left() > 0.0);
+        assert_eq!(left.left(), 0.0);
+        assert!((right.right() - 1.0).abs() < 1e-5);
     }
 }
