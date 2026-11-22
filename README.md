@@ -25,6 +25,13 @@ only hardware-tested platform; Linux and Windows are implemented but untested.
 > are implemented and compile-tested in CI, but are **untested with a real
 > printer**. Help wanted — see below.
 
+## Why this app exists
+
+The official Liene app is mobile-only. This project exists to provide a native
+**desktop app** for macOS, Linux, and Windows, so you can print from a computer
+without transferring the photo to a phone or tablet. It talks to the printer
+directly over Bluetooth Classic.
+
 ## Platform support
 
 | Platform | Status |
