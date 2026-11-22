@@ -697,9 +697,9 @@ impl LieneApp {
                         let render_layout = layout_for_render(&layouts[selected], count, borders);
                         let width = ui.available_width().clamp(220.0, 280.0);
                         ui.vertical_centered(|ui| {
-                            let (rect, _) = ui.allocate_exact_size(
+                            let (rect, response) = ui.allocate_exact_size(
                                 egui::vec2(width, width * 1.5),
-                                egui::Sense::hover(),
+                                egui::Sense::click(),
                             );
                             paint_collage(
                                 &ui.painter_at(rect),
@@ -708,6 +708,25 @@ impl LieneApp {
                                 &frames,
                                 &render_layout,
                             );
+                            if response.clicked() {
+                                if let Some(position) = response.interact_pointer_pos() {
+                                    let nx = (position.x - rect.left()) / rect.width().max(1.0);
+                                    let ny = (position.y - rect.top()) / rect.height().max(1.0);
+                                    if let Some(index) =
+                                        render_layout.cells.iter().position(|cell| {
+                                            nx >= cell.x
+                                                && nx <= cell.x + cell.w
+                                                && ny >= cell.y
+                                                && ny <= cell.y + cell.h
+                                        })
+                                    {
+                                        if let Some(collage) = self.collage.as_mut() {
+                                            collage.editing_photo = Some(index);
+                                        }
+                                    }
+                                }
+                            }
+                            response.on_hover_cursor(egui::CursorIcon::PointingHand);
                         });
                         ui.label(
                             RichText::new("Click a photo to zoom, rotate, or replace it.")
