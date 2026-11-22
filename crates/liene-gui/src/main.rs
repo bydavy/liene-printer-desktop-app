@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use eframe::egui;
 use egui::{Color32, RichText};
-use liene_client::collage::{self, CollageLayout};
+use liene_client::collage::{self, CollageLayout, PhotoFrame};
 use liene_client::daemon::{CollageRequest, Command, Event, PrintRequest};
 use liene_client::{Fit, NormalizedRect, PhotoEdit};
 use serde_json::Value;
@@ -130,10 +130,14 @@ struct ConnectedDevice {
 
 struct CollageState {
     paths: Vec<PathBuf>,
+    sources: Vec<image::RgbaImage>,
     textures: Vec<egui::TextureHandle>,
+    frames: Vec<PhotoFrame>,
     layouts: Vec<CollageLayout>,
     selected: usize,
+    borders: bool,
     copies: u32,
+    editing_photo: Option<usize>,
 }
 
 struct JobUi {
@@ -273,6 +277,24 @@ impl LieneApp {
         }
         if std::env::var_os("LIENE_COLLAGE_PREVIEW").is_some() && app.collage.is_some() {
             app.collage_previewing = true;
+        }
+        if let Ok(value) = std::env::var("LIENE_COLLAGE_BORDERS") {
+            let borders = !matches!(
+                value.to_ascii_lowercase().as_str(),
+                "off" | "0" | "false" | "none"
+            );
+            if let Some(collage) = app.collage.as_mut() {
+                collage.borders = borders;
+            }
+        }
+        if let Ok(value) = std::env::var("LIENE_COLLAGE_EDIT") {
+            if let Ok(index) = value.parse::<usize>() {
+                if let Some(collage) = app.collage.as_mut() {
+                    if index < collage.paths.len() {
+                        collage.editing_photo = Some(index);
+                    }
+                }
+            }
         }
         if let Ok(raw) = std::env::var("LIENE_EDIT") {
             match serde_json::from_str::<PhotoEdit>(&raw) {
@@ -455,6 +477,7 @@ impl LieneApp {
             return;
         }
 
+        let mut sources = Vec::with_capacity(paths.len());
         let mut textures = Vec::with_capacity(paths.len());
         for (index, path) in paths.iter().enumerate() {
             match liene_client::image_prep::load_oriented(path) {
@@ -468,6 +491,7 @@ impl LieneApp {
                         color,
                         egui::TextureOptions::LINEAR,
                     ));
+                    sources.push(rgba);
                 }
                 Err(err) => {
                     self.error = Some(format!("Could not load {}: {err}", path.display()));
@@ -480,10 +504,14 @@ impl LieneApp {
         let count = paths.len();
         self.collage = Some(CollageState {
             paths,
+            sources,
             textures,
+            frames: vec![PhotoFrame::default(); count],
             layouts,
             selected: 0,
+            borders: true,
             copies: 1,
+            editing_photo: None,
         });
         self.collage_previewing = false;
         self.error = None;
@@ -631,14 +659,18 @@ impl LieneApp {
 
     fn collage_panel(&mut self, ui: &mut egui::Ui) {
         let palette = Palette::of(ui);
-        let Some((textures, layouts, selected, count)) = self.collage.as_ref().map(|collage| {
-            (
-                collage.textures.clone(),
-                collage.layouts.clone(),
-                collage.selected,
-                collage.paths.len(),
-            )
-        }) else {
+        let Some((textures, frames, layouts, selected, count, borders)) =
+            self.collage.as_ref().map(|collage| {
+                (
+                    collage.textures.clone(),
+                    collage.frames.clone(),
+                    collage.layouts.clone(),
+                    collage.selected,
+                    collage.paths.len(),
+                    collage.borders,
+                )
+            })
+        else {
             return;
         };
         let selected = selected.min(layouts.len().saturating_sub(1));
@@ -662,6 +694,7 @@ impl LieneApp {
                     .corner_radius(12.0)
                     .inner_margin(16.0)
                     .show(ui, |ui| {
+                        let render_layout = layout_for_render(&layouts[selected], count, borders);
                         let width = ui.available_width().clamp(220.0, 280.0);
                         ui.vertical_centered(|ui| {
                             let (rect, _) = ui.allocate_exact_size(
@@ -672,11 +705,37 @@ impl LieneApp {
                                 &ui.painter_at(rect),
                                 rect,
                                 &textures,
-                                &layouts[selected],
+                                &frames,
+                                &render_layout,
                             );
                         });
+                        ui.label(
+                            RichText::new("Click a photo to zoom, rotate, or replace it.")
+                                .color(palette.muted)
+                                .small(),
+                        );
                         ui.add_space(8.0);
-                        ui.label(RichText::new("Layout").strong());
+                        let mut borders = borders;
+                        let mut randomize = false;
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new("Layout").strong());
+                            ui.add_space(16.0);
+                            ui.checkbox(&mut borders, "Borders");
+                            ui.add_space(12.0);
+                            if ui.button("Randomize").clicked() {
+                                randomize = true;
+                            }
+                        });
+                        if borders != self.collage.as_ref().map(|c| c.borders).unwrap_or(true) {
+                            if let Some(collage) = self.collage.as_mut() {
+                                collage.borders = borders;
+                            }
+                        }
+                        if randomize {
+                            if let Some(collage) = self.collage.as_mut() {
+                                shuffle_collage(collage);
+                            }
+                        }
                         let mut new_selected = selected;
                         ui.horizontal(|ui| {
                             for (index, layout) in layouts.iter().enumerate() {
@@ -719,11 +778,155 @@ impl LieneApp {
         });
     }
 
+    fn collage_photo_window(&mut self, ctx: &egui::Context) {
+        let Some((index, mut source, mut texture, mut frame, cell_aspect, count)) =
+            self.collage.as_ref().and_then(|collage| {
+                let index = collage.editing_photo?;
+                let source = collage.sources.get(index)?.clone();
+                let texture = collage.textures.get(index)?.clone();
+                let frame = *collage.frames.get(index)?;
+                let layout = collage.layouts.get(collage.selected)?;
+                let render = layout_for_render(layout, collage.paths.len(), collage.borders);
+                let cell = render.cells.get(index)?;
+                let aspect = (cell.w * 1200.0) / (cell.h * 1800.0);
+                Some((index, source, texture, frame, aspect, collage.paths.len()))
+            })
+        else {
+            return;
+        };
+
+        let mut viewport_width = 320.0_f32;
+        let mut viewport_height = viewport_width / cell_aspect.max(0.05);
+        if viewport_height > 420.0 {
+            viewport_height = 420.0;
+            viewport_width = viewport_height * cell_aspect.max(0.05);
+        }
+
+        let mut open = true;
+        let mut done = false;
+        let mut reset = false;
+        let mut rotate = false;
+        let mut replace = false;
+
+        egui::Window::new(format!("Frame photo {} of {count}", index + 1))
+            .collapsible(false)
+            .resizable(false)
+            .open(&mut open)
+            .show(ctx, |ui| {
+                let (rect, response) = ui.allocate_exact_size(
+                    egui::vec2(viewport_width, viewport_height),
+                    egui::Sense::click_and_drag(),
+                );
+                let local = photo_draw_rect(texture.size_vec2(), rect.size(), frame);
+                let draw = local.translate(rect.min.to_vec2());
+                ui.painter().with_clip_rect(rect).image(
+                    texture.id(),
+                    draw,
+                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                    Color32::WHITE,
+                );
+                ui.painter().rect_stroke(
+                    rect,
+                    0.0,
+                    egui::Stroke::new(1.0, Color32::from_gray(170)),
+                    egui::StrokeKind::Inside,
+                );
+                if response.dragged() {
+                    let delta = response.drag_delta();
+                    let slack_x = (local.width() - rect.width()).max(0.0);
+                    let slack_y = (local.height() - rect.height()).max(0.0);
+                    if slack_x > 0.0 {
+                        frame.pan_x = (frame.pan_x + delta.x / (slack_x / 2.0)).clamp(-1.0, 1.0);
+                    }
+                    if slack_y > 0.0 {
+                        frame.pan_y = (frame.pan_y + delta.y / (slack_y / 2.0)).clamp(-1.0, 1.0);
+                    }
+                }
+                ui.add_space(8.0);
+                ui.add(
+                    egui::Slider::new(&mut frame.zoom, 1.0..=8.0)
+                        .logarithmic(true)
+                        .text("Zoom"),
+                );
+                ui.label("Drag the photo to choose the part that prints.");
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    if ui.button("Rotate 90°").clicked() {
+                        rotate = true;
+                    }
+                    if ui.button("Replace…").clicked() {
+                        replace = true;
+                    }
+                    if ui.button("Reset").clicked() {
+                        reset = true;
+                    }
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.button("Done").clicked() {
+                            done = true;
+                        }
+                    });
+                });
+            });
+
+        if replace {
+            if let Some(path) = rfd::FileDialog::new()
+                .add_filter("Images", &["jpg", "jpeg", "png"])
+                .pick_file()
+            {
+                match liene_client::image_prep::load_oriented(&path) {
+                    Ok(image) => {
+                        let rgba = image.thumbnail(1200, 1200).to_rgba8();
+                        let new_texture =
+                            texture_from_rgba(ctx, &rgba, format!("collage-{index}-replace"));
+                        source = rgba;
+                        frame = PhotoFrame::default();
+                        if let Some(collage) = self.collage.as_mut() {
+                            collage.paths[index] = path;
+                            collage.sources[index] = source.clone();
+                            collage.textures[index] = new_texture;
+                            collage.frames[index] = frame;
+                        }
+                    }
+                    Err(err) => {
+                        self.error = Some(format!("Could not load {}: {err}", path.display()));
+                    }
+                }
+            }
+        }
+        if reset {
+            frame = PhotoFrame::default();
+        }
+        if rotate {
+            frame.rotation = (frame.rotation + 90) % 360;
+            frame.zoom = 1.0;
+            frame.pan_x = 0.0;
+            frame.pan_y = 0.0;
+        }
+        if reset || rotate {
+            let rotated = rotate_rgba(&source, frame.rotation);
+            texture = texture_from_rgba(
+                ctx,
+                &rotated,
+                format!("collage-{index}-rot-{}", frame.rotation),
+            );
+            if let Some(collage) = self.collage.as_mut() {
+                collage.textures[index] = texture;
+            }
+        }
+        if let Some(collage) = self.collage.as_mut() {
+            collage.frames[index] = frame;
+            if done || !open {
+                collage.editing_photo = None;
+            }
+        }
+    }
+
     fn collage_print_window(&mut self, ctx: &egui::Context) {
-        let Some((textures, layout, paths, initial_copies)) =
+        let Some((textures, frames, layout, paths, initial_copies, borders)) =
             self.collage.as_ref().map(|collage| {
                 (
                     collage.textures.clone(),
+                    collage.frames.clone(),
                     collage
                         .layouts
                         .get(collage.selected)
@@ -731,6 +934,7 @@ impl LieneApp {
                         .unwrap_or_else(|| collage.layouts[0].clone()),
                     collage.paths.clone(),
                     collage.copies,
+                    collage.borders,
                 )
             })
         else {
@@ -759,6 +963,7 @@ impl LieneApp {
             .map(|device| device.name.as_str())
             .unwrap_or("Printer");
 
+        let preview_layout = layout_for_render(&layout, paths.len(), borders);
         let mut copies = initial_copies.clamp(1, 9);
         let mut open = true;
         let mut back = false;
@@ -777,7 +982,13 @@ impl LieneApp {
                     let width = 250.0;
                     let (rect, _) = ui
                         .allocate_exact_size(egui::vec2(width, width * 1.5), egui::Sense::hover());
-                    paint_collage(&ui.painter_at(rect), rect, &textures, &layout);
+                    paint_collage(
+                        &ui.painter_at(rect),
+                        rect,
+                        &textures,
+                        &frames,
+                        &preview_layout,
+                    );
                 });
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
@@ -832,6 +1043,8 @@ impl LieneApp {
                 paths,
                 layout: layout.id.to_owned(),
                 copies,
+                borders,
+                frames,
             }));
             self.collage_previewing = false;
         } else if !open || back {
@@ -1726,6 +1939,14 @@ impl eframe::App for LieneApp {
         if self.collage_previewing && self.collage.is_some() {
             self.collage_print_window(ui.ctx());
         }
+        if self
+            .collage
+            .as_ref()
+            .and_then(|collage| collage.editing_photo)
+            .is_some()
+        {
+            self.collage_photo_window(ui.ctx());
+        }
     }
 }
 
@@ -1767,14 +1988,116 @@ fn layout_icon(
         .clicked()
 }
 
+fn shuffle_collage(collage: &mut CollageState) {
+    let len = collage.paths.len();
+    if len < 2 {
+        return;
+    }
+    let mut seed = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos() as u64)
+        .unwrap_or(1);
+    let mut changed = false;
+    for index in (1..len).rev() {
+        seed = seed
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        let other = (seed as usize) % (index + 1);
+        if other != index {
+            changed = true;
+            collage.paths.swap(index, other);
+            collage.sources.swap(index, other);
+            collage.textures.swap(index, other);
+            collage.frames.swap(index, other);
+        }
+    }
+    if !changed {
+        collage.paths.rotate_left(1);
+        collage.sources.rotate_left(1);
+        collage.textures.rotate_left(1);
+        collage.frames.rotate_left(1);
+    }
+}
+
+fn layout_for_render(layout: &CollageLayout, count: usize, borders: bool) -> CollageLayout {
+    if borders {
+        layout.clone()
+    } else {
+        collage::layouts_for_borders(count, false)
+            .into_iter()
+            .find(|candidate| candidate.id == layout.id)
+            .unwrap_or_else(|| layout.clone())
+    }
+}
+
+fn frame_uv(texture_size: egui::Vec2, dst_aspect: f32, frame: PhotoFrame) -> egui::Rect {
+    let source_aspect = texture_size.x / texture_size.y;
+    let (base_width, base_height) = if source_aspect > dst_aspect {
+        (dst_aspect / source_aspect, 1.0)
+    } else {
+        (1.0, source_aspect / dst_aspect)
+    };
+    let zoom = frame.zoom.clamp(1.0, 8.0);
+    let crop_width = base_width / zoom;
+    let crop_height = base_height / zoom;
+    let base_x = (1.0 - base_width) / 2.0;
+    let base_y = (1.0 - base_height) / 2.0;
+    let slack_x = base_width - crop_width;
+    let slack_y = base_height - crop_height;
+    let x = base_x + slack_x / 2.0 + frame.pan_x.clamp(-1.0, 1.0) * slack_x / 2.0;
+    let y = base_y + slack_y / 2.0 + frame.pan_y.clamp(-1.0, 1.0) * slack_y / 2.0;
+    egui::Rect::from_min_max(
+        egui::pos2(x, y),
+        egui::pos2(x + crop_width, y + crop_height),
+    )
+}
+
+fn photo_draw_rect(
+    texture_size: egui::Vec2,
+    viewport: egui::Vec2,
+    frame: PhotoFrame,
+) -> egui::Rect {
+    let scale = f32::max(viewport.x / texture_size.x, viewport.y / texture_size.y)
+        * frame.zoom.clamp(1.0, 8.0);
+    let width = texture_size.x * scale;
+    let height = texture_size.y * scale;
+    let slack_x = (width - viewport.x).max(0.0);
+    let slack_y = (height - viewport.y).max(0.0);
+    let left = (viewport.x - width) / 2.0 + frame.pan_x.clamp(-1.0, 1.0) * slack_x / 2.0;
+    let top = (viewport.y - height) / 2.0 + frame.pan_y.clamp(-1.0, 1.0) * slack_y / 2.0;
+    egui::Rect::from_min_size(egui::pos2(left, top), egui::vec2(width, height))
+}
+
+fn rotate_rgba(source: &image::RgbaImage, rotation: u32) -> image::RgbaImage {
+    match rotation % 360 {
+        90 => image::imageops::rotate90(source),
+        180 => image::imageops::rotate180(source),
+        270 => image::imageops::rotate270(source),
+        _ => source.clone(),
+    }
+}
+
+fn texture_from_rgba(
+    ctx: &egui::Context,
+    rgba: &image::RgbaImage,
+    name: String,
+) -> egui::TextureHandle {
+    let color = egui::ColorImage::from_rgba_unmultiplied(
+        [rgba.width() as usize, rgba.height() as usize],
+        rgba.as_raw(),
+    );
+    ctx.load_texture(name, color, egui::TextureOptions::LINEAR)
+}
+
 fn paint_collage(
     painter: &egui::Painter,
     rect: egui::Rect,
     textures: &[egui::TextureHandle],
+    frames: &[PhotoFrame],
     layout: &CollageLayout,
 ) {
     painter.rect_filled(rect, 0.0, Color32::WHITE);
-    for (texture, cell) in textures.iter().zip(&layout.cells) {
+    for (index, (texture, cell)) in textures.iter().zip(&layout.cells).enumerate() {
         let dst = egui::Rect::from_min_max(
             egui::pos2(
                 rect.left() + cell.x * rect.width(),
@@ -1790,16 +2113,8 @@ fn paint_collage(
         }
         let source = texture.size_vec2();
         let dst_aspect = dst.width() / dst.height();
-        let source_aspect = source.x / source.y;
-        let uv = if source_aspect > dst_aspect {
-            let width = dst_aspect / source_aspect;
-            let x = (1.0 - width) / 2.0;
-            egui::Rect::from_min_max(egui::pos2(x, 0.0), egui::pos2(x + width, 1.0))
-        } else {
-            let height = source_aspect / dst_aspect;
-            let y = (1.0 - height) / 2.0;
-            egui::Rect::from_min_max(egui::pos2(0.0, y), egui::pos2(1.0, y + height))
-        };
+        let frame = frames.get(index).copied().unwrap_or_default();
+        let uv = frame_uv(source, dst_aspect, frame);
         painter.image(texture.id(), dst, uv, Color32::WHITE);
     }
     painter.rect_stroke(

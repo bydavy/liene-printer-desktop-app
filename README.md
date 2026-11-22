@@ -76,6 +76,9 @@ local-bridge or BLE-GATT routes.
 - **Collage mode**: choose or drop 2–4 photos, pick a vertical, horizontal,
   focused, or grid layout, preview it live, then open a print preview with
   copies.
+- **Per-photo framing**: click a photo in the collage preview to zoom, rotate,
+  replace, or reset that photo; drag in the frame editor to choose the crop.
+  Toggle white borders and randomize the photo order explicitly.
 - **Non-destructive editing**: rotate in 90° steps, freeform crop, **Lock 2:3**
   with a 1×–8× zoom/framing slider, and a live **print preview** with white
   borders for Fit.
@@ -187,7 +190,8 @@ The app auto-connects to the paired printer and provides:
 
 - **Photo**: drag and drop, or choose a JPEG/PNG.
 - **Collage**: use **Collage…** or drop 2–4 images, choose a layout, and tap
-  **Print** to open the final preview and copies.
+  **Print** to open the final preview and copies. Click a photo in the preview
+  to frame it; use **Borders** and **Randomize** for layout control.
 - **Editing**:
   - Rotate 90° clockwise (repeat to keep turning); the crop rotates with the
     image.

@@ -42,6 +42,14 @@ pub struct CollageRequest {
     pub paths: Vec<PathBuf>,
     pub layout: String,
     pub copies: u32,
+    #[serde(default = "default_borders")]
+    pub borders: bool,
+    #[serde(default)]
+    pub frames: Vec<collage::PhotoFrame>,
+}
+
+fn default_borders() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -361,8 +369,15 @@ async fn print_collage(
         anyhow::bail!("printer is not connected");
     }
 
-    let data = collage::render_collage_jpeg(&request.paths, &request.layout, 1200, 1800)
-        .context("could not prepare the collage")?;
+    let data = collage::render_collage_jpeg(
+        &request.paths,
+        &request.layout,
+        request.borders,
+        &request.frames,
+        1200,
+        1800,
+    )
+    .context("could not prepare the collage")?;
     emit(Event::PrintPrepared { bytes: data.len() });
 
     send_print_data(printer, emit, &data, request.copies, "collage.jpg").await
