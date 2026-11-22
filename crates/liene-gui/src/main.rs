@@ -9,7 +9,8 @@ use std::time::{Duration, Instant};
 
 use eframe::egui;
 use egui::{Color32, RichText};
-use liene_client::daemon::{Command, Event, PrintRequest};
+use liene_client::collage::{self, CollageLayout};
+use liene_client::daemon::{CollageRequest, Command, Event, PrintRequest};
 use liene_client::{Fit, NormalizedRect, PhotoEdit};
 use serde_json::Value;
 
@@ -127,6 +128,14 @@ struct ConnectedDevice {
     address: String,
 }
 
+struct CollageState {
+    paths: Vec<PathBuf>,
+    textures: Vec<egui::TextureHandle>,
+    layouts: Vec<CollageLayout>,
+    selected: usize,
+    copies: u32,
+}
+
 struct JobUi {
     id: u32,
     total_frames: usize,
@@ -165,6 +174,9 @@ struct LieneApp {
 
     copies: u32,
     fit: Fit,
+
+    collage: Option<CollageState>,
+    collage_previewing: bool,
 
     job: Option<JobUi>,
     upload: Option<(usize, usize)>,
@@ -239,6 +251,8 @@ impl LieneApp {
             crop_drag_start: None,
             copies: 1,
             fit: Fit::Contain,
+            collage: None,
+            collage_previewing: false,
             job: None,
             upload: None,
             error: startup_error,
@@ -252,6 +266,13 @@ impl LieneApp {
         };
         if let Some(path) = std::env::var_os("LIENE_IMAGE") {
             app.load_image(PathBuf::from(path), &cc.egui_ctx);
+        }
+        if let Some(raw) = std::env::var_os("LIENE_COLLAGE") {
+            let paths: Vec<PathBuf> = std::env::split_paths(&raw).collect();
+            app.load_collage(paths, &cc.egui_ctx);
+        }
+        if std::env::var_os("LIENE_COLLAGE_PREVIEW").is_some() && app.collage.is_some() {
+            app.collage_previewing = true;
         }
         if let Ok(raw) = std::env::var("LIENE_EDIT") {
             match serde_json::from_str::<PhotoEdit>(&raw) {
@@ -397,6 +418,8 @@ impl LieneApp {
     }
 
     fn load_image(&mut self, path: PathBuf, ctx: &egui::Context) {
+        self.collage = None;
+        self.collage_previewing = false;
         match liene_client::image_prep::load_oriented(&path) {
             Ok(image) => {
                 self.source = Some(Arc::new(image));
@@ -421,6 +444,54 @@ impl LieneApp {
         }
     }
 
+    fn load_collage(&mut self, paths: Vec<PathBuf>, ctx: &egui::Context) {
+        let paths: Vec<PathBuf> = paths
+            .into_iter()
+            .filter(|path| path.is_file())
+            .take(4)
+            .collect();
+        if paths.len() < 2 {
+            self.error = Some("Choose at least two photos for a collage.".to_owned());
+            return;
+        }
+
+        let mut textures = Vec::with_capacity(paths.len());
+        for (index, path) in paths.iter().enumerate() {
+            match liene_client::image_prep::load_oriented(path) {
+                Ok(image) => {
+                    let thumbnail = image.thumbnail(1200, 1200);
+                    let rgba = thumbnail.to_rgba8();
+                    let size = [rgba.width() as usize, rgba.height() as usize];
+                    let color = egui::ColorImage::from_rgba_unmultiplied(size, rgba.as_raw());
+                    textures.push(ctx.load_texture(
+                        format!("collage-{index}"),
+                        color,
+                        egui::TextureOptions::LINEAR,
+                    ));
+                }
+                Err(err) => {
+                    self.error = Some(format!("Could not load {}: {err}", path.display()));
+                    return;
+                }
+            }
+        }
+
+        let layouts = collage::layouts_for(paths.len());
+        let count = paths.len();
+        self.collage = Some(CollageState {
+            paths,
+            textures,
+            layouts,
+            selected: 0,
+            copies: 1,
+        });
+        self.collage_previewing = false;
+        self.error = None;
+        self.job = None;
+        self.upload = None;
+        self.push_log(format!("Loaded collage with {count} photos."));
+    }
+
     /// Rebuild the preview texture from the source image, applying rotation.
     /// The crop is drawn as an overlay, not baked into the texture.
     fn refresh_preview(&mut self, ctx: &egui::Context) {
@@ -440,10 +511,24 @@ impl LieneApp {
     }
 
     fn handle_drops(&mut self, ui: &egui::Ui) {
-        let dropped = ui.ctx().input(|i| i.raw.dropped_files.clone());
-        if let Some(file) = dropped.into_iter().next() {
-            let path = file.path().to_path_buf();
-            self.load_image(path, ui.ctx());
+        let paths: Vec<PathBuf> = ui.ctx().input(|i| {
+            i.raw
+                .dropped_files
+                .iter()
+                .filter_map(|f| {
+                    let path = f.path();
+                    if path.as_os_str().is_empty() {
+                        None
+                    } else {
+                        Some(path.to_path_buf())
+                    }
+                })
+                .collect()
+        });
+        match paths.len() {
+            0 => {}
+            1 => self.load_image(paths.into_iter().next().unwrap(), ui.ctx()),
+            _ => self.load_collage(paths, ui.ctx()),
         }
     }
 
@@ -544,6 +629,218 @@ impl LieneApp {
         }
     }
 
+    fn collage_panel(&mut self, ui: &mut egui::Ui) {
+        let palette = Palette::of(ui);
+        let Some((textures, layouts, selected, count)) = self.collage.as_ref().map(|collage| {
+            (
+                collage.textures.clone(),
+                collage.layouts.clone(),
+                collage.selected,
+                collage.paths.len(),
+            )
+        }) else {
+            return;
+        };
+        let selected = selected.min(layouts.len().saturating_sub(1));
+
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("Collage").size(20.0).strong());
+            if ui.button("Close").clicked() {
+                self.collage = None;
+                self.collage_previewing = false;
+            }
+        });
+        ui.add_space(8.0);
+
+        ui.horizontal_top(|ui| {
+            let total_width = ui.available_width();
+            let right_width = (total_width - 380.0 - 14.0 - 12.0).max(360.0);
+            ui.vertical(|ui| {
+                ui.set_width(380.0);
+                egui::Frame::new()
+                    .fill(palette.card)
+                    .corner_radius(12.0)
+                    .inner_margin(16.0)
+                    .show(ui, |ui| {
+                        let width = ui.available_width().clamp(220.0, 280.0);
+                        ui.vertical_centered(|ui| {
+                            let (rect, _) = ui.allocate_exact_size(
+                                egui::vec2(width, width * 1.5),
+                                egui::Sense::hover(),
+                            );
+                            paint_collage(
+                                &ui.painter_at(rect),
+                                rect,
+                                &textures,
+                                &layouts[selected],
+                            );
+                        });
+                        ui.add_space(8.0);
+                        ui.label(RichText::new("Layout").strong());
+                        let mut new_selected = selected;
+                        ui.horizontal_wrapped(|ui| {
+                            for (index, layout) in layouts.iter().enumerate() {
+                                if ui
+                                    .selectable_label(selected == index, layout.name)
+                                    .clicked()
+                                {
+                                    new_selected = index;
+                                }
+                            }
+                        });
+                        if new_selected != selected {
+                            if let Some(collage) = self.collage.as_mut() {
+                                collage.selected = new_selected;
+                            }
+                        }
+                        ui.add_space(8.0);
+                        let can_review = count > 0;
+                        let print = egui::Button::new(RichText::new("Print").size(18.0).strong())
+                            .min_size(egui::vec2(180.0, 42.0));
+                        if ui.add_enabled(can_review, print).clicked() {
+                            self.collage_previewing = true;
+                        }
+                        ui.label(
+                            RichText::new(format!(
+                                "{count} photos · {PRINT_WIDTH}×{PRINT_HEIGHT} px"
+                            ))
+                            .color(palette.muted)
+                            .small(),
+                        );
+                    });
+            });
+            ui.add_space(14.0);
+            ui.vertical(|ui| {
+                ui.set_width(right_width);
+                self.status_card(ui);
+                ui.add_space(8.0);
+                self.progress_ui(ui);
+                ui.add_space(8.0);
+                self.device_card(ui);
+            });
+        });
+    }
+
+    fn collage_print_window(&mut self, ctx: &egui::Context) {
+        let Some((textures, layout, paths, initial_copies)) =
+            self.collage.as_ref().map(|collage| {
+                (
+                    collage.textures.clone(),
+                    collage
+                        .layouts
+                        .get(collage.selected)
+                        .cloned()
+                        .unwrap_or_else(|| collage.layouts[0].clone()),
+                    collage.paths.clone(),
+                    collage.copies,
+                )
+            })
+        else {
+            return;
+        };
+
+        let connected = self.connected.is_some();
+        let busy = self.busy;
+        let has_alert = self.printer_has_alert();
+        let status = self.status.as_ref().and_then(parse_status);
+        let status_text = if connected {
+            status
+                .as_ref()
+                .map(|status| status.headline(&Palette::DARK).0)
+                .unwrap_or("Connected")
+        } else {
+            "Not connected"
+        };
+        let battery = status
+            .as_ref()
+            .and_then(|status| status.battery)
+            .map(battery_label);
+        let printer_name = self
+            .connected
+            .as_ref()
+            .map(|device| device.name.as_str())
+            .unwrap_or("Printer");
+
+        let mut copies = initial_copies.clamp(1, 9);
+        let mut open = true;
+        let mut back = false;
+        let mut print = false;
+        let mut connect = false;
+        let can_print = connected && !busy && !has_alert;
+
+        egui::Window::new("Print preview")
+            .collapsible(false)
+            .resizable(false)
+            .default_width(420.0)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0.0, 0.0))
+            .open(&mut open)
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    let width = 250.0;
+                    let (rect, _) = ui
+                        .allocate_exact_size(egui::vec2(width, width * 1.5), egui::Sense::hover());
+                    paint_collage(&ui.painter_at(rect), rect, &textures, &layout);
+                });
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    ui.label("Copies");
+                    ui.add(egui::DragValue::new(&mut copies).range(1..=9));
+                });
+                ui.add_space(4.0);
+                let mut status_line = format!("{printer_name} · {status_text}");
+                if let Some(battery) = &battery {
+                    status_line.push_str(" · ");
+                    status_line.push_str(battery);
+                }
+                ui.label(status_line);
+                if has_alert {
+                    ui.colored_label(
+                        Palette::of(ui).red,
+                        "Resolve the printer alert before printing.",
+                    );
+                }
+                if !connected && ui.button("Connect printer").clicked() {
+                    connect = true;
+                }
+                ui.separator();
+                ui.horizontal(|ui| {
+                    if ui.button("Back").clicked() {
+                        back = true;
+                    }
+                    let button = egui::Button::new(RichText::new("Print now").strong())
+                        .min_size(egui::vec2(140.0, 36.0));
+                    if ui.add_enabled(can_print, button).clicked() {
+                        print = true;
+                    }
+                });
+            });
+
+        if let Some(collage) = self.collage.as_mut() {
+            collage.copies = copies;
+        }
+        if connect {
+            self.send(Command::Connect {
+                name: self.device_prefix.clone(),
+                scan_secs: self.scan_secs,
+            });
+        }
+        if print {
+            self.busy = true;
+            self.job = None;
+            self.upload = None;
+            self.error = None;
+            self.push_log(format!("Printing collage with {} photos…", paths.len()));
+            self.send(Command::PrintCollage(CollageRequest {
+                paths,
+                layout: layout.id.to_owned(),
+                copies,
+            }));
+            self.collage_previewing = false;
+        } else if !open || back {
+            self.collage_previewing = false;
+        }
+    }
+
     fn photo_panel(&mut self, ui: &mut egui::Ui) {
         let palette = Palette::of(ui);
         egui::Frame::new()
@@ -560,6 +857,14 @@ impl LieneApp {
                                 .pick_file()
                             {
                                 self.load_image(path, ui.ctx());
+                            }
+                        }
+                        if ui.button("Collage…").clicked() {
+                            if let Some(paths) = rfd::FileDialog::new()
+                                .add_filter("Images", &["jpg", "jpeg", "png"])
+                                .pick_files()
+                            {
+                                self.load_collage(paths, ui.ctx());
                             }
                         }
                     });
@@ -1396,26 +1701,77 @@ impl eframe::App for LieneApp {
                     self.error_banner(ui);
                     ui.add_space(6.0);
 
-                    ui.horizontal_top(|ui| {
-                        let total_width = ui.available_width();
-                        let right_width = (total_width - 420.0 - 14.0 - 12.0).max(360.0);
+                    if self.collage.is_some() {
+                        self.collage_panel(ui);
+                    } else {
+                        ui.horizontal_top(|ui| {
+                            let total_width = ui.available_width();
+                            let right_width = (total_width - 420.0 - 14.0 - 12.0).max(360.0);
 
-                        ui.vertical(|ui| {
-                            ui.set_width(420.0);
-                            self.photo_panel(ui);
+                            ui.vertical(|ui| {
+                                ui.set_width(420.0);
+                                self.photo_panel(ui);
+                            });
+                            ui.add_space(14.0);
+                            ui.vertical(|ui| {
+                                ui.set_width(right_width);
+                                self.settings_panel(ui);
+                            });
                         });
-                        ui.add_space(14.0);
-                        ui.vertical(|ui| {
-                            ui.set_width(right_width);
-                            self.settings_panel(ui);
-                        });
-                    });
+                    }
 
                     ui.add_space(10.0);
                     self.log_panel(ui);
                 });
             });
+
+        if self.collage_previewing && self.collage.is_some() {
+            self.collage_print_window(ui.ctx());
+        }
     }
+}
+
+fn paint_collage(
+    painter: &egui::Painter,
+    rect: egui::Rect,
+    textures: &[egui::TextureHandle],
+    layout: &CollageLayout,
+) {
+    painter.rect_filled(rect, 0.0, Color32::WHITE);
+    for (texture, cell) in textures.iter().zip(&layout.cells) {
+        let dst = egui::Rect::from_min_max(
+            egui::pos2(
+                rect.left() + cell.x * rect.width(),
+                rect.top() + cell.y * rect.height(),
+            ),
+            egui::pos2(
+                rect.left() + (cell.x + cell.w) * rect.width(),
+                rect.top() + (cell.y + cell.h) * rect.height(),
+            ),
+        );
+        if dst.width() <= 0.0 || dst.height() <= 0.0 {
+            continue;
+        }
+        let source = texture.size_vec2();
+        let dst_aspect = dst.width() / dst.height();
+        let source_aspect = source.x / source.y;
+        let uv = if source_aspect > dst_aspect {
+            let width = dst_aspect / source_aspect;
+            let x = (1.0 - width) / 2.0;
+            egui::Rect::from_min_max(egui::pos2(x, 0.0), egui::pos2(x + width, 1.0))
+        } else {
+            let height = source_aspect / dst_aspect;
+            let y = (1.0 - height) / 2.0;
+            egui::Rect::from_min_max(egui::pos2(0.0, y), egui::pos2(1.0, y + height))
+        };
+        painter.image(texture.id(), dst, uv, Color32::WHITE);
+    }
+    painter.rect_stroke(
+        rect,
+        0.0,
+        egui::Stroke::new(1.0, Color32::from_gray(190)),
+        egui::StrokeKind::Inside,
+    );
 }
 
 fn spawn_helper() -> anyhow::Result<(ChildStdin, Child, Receiver<Event>)> {

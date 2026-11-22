@@ -12,6 +12,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
+use crate::collage;
 use crate::edit::PhotoEdit;
 use crate::image_prep::{self, Fit};
 use crate::printer::Printer;
@@ -28,11 +29,19 @@ pub enum Command {
     RefreshStatus,
     RefreshInfo,
     Print(PrintRequest),
+    PrintCollage(CollageRequest),
     Resume,
     CancelJob { job_id: u32 },
     Pair { address: String },
     Scan,
     Disconnect,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CollageRequest {
+    pub paths: Vec<PathBuf>,
+    pub layout: String,
+    pub copies: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,6 +110,23 @@ pub async fn run(cmd_rx: Receiver<Command>, mut emit: impl FnMut(Event)) {
             Command::Print(request) => {
                 emit(Event::Busy { busy: true });
                 if let Err(err) = print(&mut printer, &mut emit, &name, scan_secs, request).await {
+                    emit(Event::Error {
+                        message: format!("{err:#}"),
+                    });
+                    printer = None;
+                    emit(Event::Disconnected);
+                }
+                emit(Event::Busy { busy: false });
+                if printer.is_some() {
+                    let _ = refresh_status(&mut printer, &mut emit).await;
+                }
+            }
+
+            Command::PrintCollage(request) => {
+                emit(Event::Busy { busy: true });
+                if let Err(err) =
+                    print_collage(&mut printer, &mut emit, &name, scan_secs, request).await
+                {
                     emit(Event::Error {
                         message: format!("{err:#}"),
                     });
@@ -309,11 +335,6 @@ async fn print(
     .with_context(|| format!("could not prepare {}", request.path.display()))?;
     emit(Event::PrintPrepared { bytes: data.len() });
 
-    let job = PrintJob {
-        copies: request.copies,
-        media_size: MEDIA_SIZE_2X3,
-        ..PrintJob::default()
-    };
     let document_name = request
         .path
         .file_name()
@@ -326,6 +347,39 @@ async fn print(
             .map(|(stem, _)| stem)
             .unwrap_or(document_name)
     );
+    send_print_data(printer, emit, &data, request.copies, &document_name).await
+}
+
+async fn print_collage(
+    printer: &mut Option<Printer>,
+    emit: &mut impl FnMut(Event),
+    name: &str,
+    scan_secs: u64,
+    request: CollageRequest,
+) -> Result<()> {
+    if !ensure_connected(printer, emit, name, scan_secs).await {
+        anyhow::bail!("printer is not connected");
+    }
+
+    let data = collage::render_collage_jpeg(&request.paths, &request.layout, 1200, 1800)
+        .context("could not prepare the collage")?;
+    emit(Event::PrintPrepared { bytes: data.len() });
+
+    send_print_data(printer, emit, &data, request.copies, "collage.jpg").await
+}
+
+async fn send_print_data(
+    printer: &mut Option<Printer>,
+    emit: &mut impl FnMut(Event),
+    data: &[u8],
+    copies: u32,
+    document_name: &str,
+) -> Result<()> {
+    let job = PrintJob {
+        copies,
+        media_size: MEDIA_SIZE_2X3,
+        ..PrintJob::default()
+    };
     let params = PrintJobParams::photo(job, document_name, data.len() as u64);
 
     let p = printer.as_mut().context("printer disconnected")?;
@@ -343,7 +397,7 @@ async fn print(
         total_frames,
     });
 
-    p.upload(job_id, &data, FRAME_DELAY, |sent, total| {
+    p.upload(job_id, data, FRAME_DELAY, |sent, total| {
         emit(Event::UploadProgress { sent, total });
     })
     .await

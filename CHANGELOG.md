@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Collage mode for 2–4 photos with vertical, horizontal, focused, and grid
+  layouts, a live preview, and a final print-preview window with copies.
+
 ## [0.3.2] - 2026-11-22
 
 ### Fixed

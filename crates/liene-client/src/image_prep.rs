@@ -58,8 +58,7 @@ pub fn prepare_jpeg_with_edit(
         Fit::Contain => contain(&rgb, width, height),
     };
 
-    encode_jpeg(&canvas, MAX_JPEG_BYTES)
-        .with_context(|| format!("could not encode {}", path.display()))
+    encode_jpeg(&canvas).with_context(|| format!("could not encode {}", path.display()))
 }
 
 /// Decode an image and apply its EXIF orientation, so phone photos are not
@@ -104,7 +103,8 @@ fn contain(source: &RgbImage, width: u32, height: u32) -> RgbImage {
     canvas
 }
 
-fn encode_jpeg(canvas: &RgbImage, max_bytes: usize) -> Result<Vec<u8>> {
+pub(crate) fn encode_jpeg(canvas: &RgbImage) -> Result<Vec<u8>> {
+    let max_bytes = MAX_JPEG_BYTES;
     let (width, height) = canvas.dimensions();
 
     let mut quality = 92u8;

@@ -73,6 +73,9 @@ local-bridge or BLE-GATT routes.
   printer status, battery, alerts, and model/serial/firmware information.
 - **Light and dark themes** that follow the system appearance, with a custom
   palette for each.
+- **Collage mode**: choose or drop 2–4 photos, pick a vertical, horizontal,
+  focused, or grid layout, preview it live, then open a print preview with
+  copies.
 - **Non-destructive editing**: rotate in 90° steps, freeform crop, **Lock 2:3**
   with a 1×–8× zoom/framing slider, and a live **print preview** with white
   borders for Fit.
@@ -183,6 +186,8 @@ code-signed.
 The app auto-connects to the paired printer and provides:
 
 - **Photo**: drag and drop, or choose a JPEG/PNG.
+- **Collage**: use **Collage…** or drop 2–4 images, choose a layout, and tap
+  **Print** to open the final preview and copies.
 - **Editing**:
   - Rotate 90° clockwise (repeat to keep turning); the crop rotates with the
     image.
@@ -205,6 +210,8 @@ The app auto-connects to the paired printer and provides:
 - **Log** panel for diagnostics.
 
 ![Print preview](docs/print-preview.png)
+
+![Collage](docs/collage.png)
 
 ### CLI
 

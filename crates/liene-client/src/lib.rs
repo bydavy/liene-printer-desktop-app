@@ -4,13 +4,14 @@
 //! Hannto frame protocol. [`image_prep`] turns arbitrary photos into the
 //! 2x3 JPEG the printer expects.
 
+pub mod collage;
 pub mod daemon;
 pub mod edit;
 pub mod image_prep;
 pub mod pairing;
 pub mod printer;
 
-pub use daemon::{Command, Event, PrintRequest};
+pub use daemon::{CollageRequest, Command, Event, PrintRequest};
 pub use edit::{NormalizedRect, PhotoEdit};
 pub use image_prep::{prepare_jpeg, Fit};
 pub use printer::{
