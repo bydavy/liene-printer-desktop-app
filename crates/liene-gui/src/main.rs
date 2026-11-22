@@ -678,12 +678,9 @@ impl LieneApp {
                         ui.add_space(8.0);
                         ui.label(RichText::new("Layout").strong());
                         let mut new_selected = selected;
-                        ui.horizontal_wrapped(|ui| {
+                        ui.horizontal(|ui| {
                             for (index, layout) in layouts.iter().enumerate() {
-                                if ui
-                                    .selectable_label(selected == index, layout.name)
-                                    .clicked()
-                                {
+                                if layout_icon(ui, layout, selected == index, &palette) {
                                     new_selected = index;
                                 }
                             }
@@ -702,7 +699,8 @@ impl LieneApp {
                         }
                         ui.label(
                             RichText::new(format!(
-                                "{count} photos · {PRINT_WIDTH}×{PRINT_HEIGHT} px"
+                                "{count} photos · {} · {PRINT_WIDTH}×{PRINT_HEIGHT} px",
+                                layouts[selected].name
                             ))
                             .color(palette.muted)
                             .small(),
@@ -1729,6 +1727,44 @@ impl eframe::App for LieneApp {
             self.collage_print_window(ui.ctx());
         }
     }
+}
+
+fn layout_icon(
+    ui: &mut egui::Ui,
+    layout: &CollageLayout,
+    selected: bool,
+    palette: &Palette,
+) -> bool {
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(56.0, 84.0), egui::Sense::click());
+    let painter = ui.painter();
+    painter.rect_filled(rect, 0.0, Color32::WHITE);
+    for cell in &layout.cells {
+        let dst = egui::Rect::from_min_max(
+            egui::pos2(
+                rect.left() + cell.x * rect.width(),
+                rect.top() + cell.y * rect.height(),
+            ),
+            egui::pos2(
+                rect.left() + (cell.x + cell.w) * rect.width(),
+                rect.top() + (cell.y + cell.h) * rect.height(),
+            ),
+        );
+        painter.rect_filled(dst, 0.0, Color32::from_gray(190));
+    }
+    painter.rect_stroke(
+        rect,
+        0.0,
+        if selected {
+            egui::Stroke::new(2.0, palette.accent)
+        } else {
+            egui::Stroke::new(1.0, palette.border)
+        },
+        egui::StrokeKind::Inside,
+    );
+    response
+        .on_hover_cursor(egui::CursorIcon::PointingHand)
+        .on_hover_text(layout.name)
+        .clicked()
 }
 
 fn paint_collage(

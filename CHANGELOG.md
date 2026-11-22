@@ -6,6 +6,7 @@
 
 - Collage mode for 2–4 photos with vertical, horizontal, focused, and grid
   layouts, a live preview, and a final print-preview window with copies.
+- Collage layout options use white/grey diagram icons instead of text labels.
 
 ## [0.3.2] - 2026-11-22
 
