@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Battery status is shown as the printer's actual 0–4 level (`Battery full`,
+  `75%`, etc.) instead of misreading level `4` as 4%.
+
+### Changed
+
+- Print resolution is fixed at 1200×1800 in the GUI and CLI. The 600×900
+  selector and the `--width`/`--height` overrides were removed.
+
 ## [0.3.1] - 2026-11-21
 
 ### Added

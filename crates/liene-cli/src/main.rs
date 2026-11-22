@@ -11,6 +11,10 @@ use serde_json::{json, Value};
 
 use printer::Printer;
 
+/// 2× the printer's native 300 dpi output.
+const PRINT_WIDTH: u32 = 1200;
+const PRINT_HEIGHT: u32 = 1800;
+
 #[derive(Parser, Debug)]
 #[command(
     name = "liene-n200",
@@ -70,12 +74,6 @@ enum Command {
         #[arg(short, long, default_value = "prepared.jpg")]
         out: PathBuf,
 
-        #[arg(long, default_value_t = 1200)]
-        width: u32,
-
-        #[arg(long, default_value_t = 1800)]
-        height: u32,
-
         #[arg(long, default_value = "contain")]
         fit: String,
 
@@ -99,14 +97,6 @@ enum Command {
         /// Number of copies (1-9).
         #[arg(short, long, default_value_t = 1)]
         copies: u32,
-
-        /// Canvas width in pixels (default 1200; 2x native 300 dpi output).
-        #[arg(long, default_value_t = 1200)]
-        width: u32,
-
-        /// Canvas height in pixels (default 1800; 2x native 300 dpi output).
-        #[arg(long, default_value_t = 1800)]
-        height: u32,
 
         /// Fit mode: contain (letterbox, default) or cover (crop to fill).
         #[arg(long, default_value = "contain")]
@@ -334,23 +324,22 @@ async fn async_main(cli: Cli) -> Result<()> {
         Command::Prepare {
             image,
             out,
-            width,
-            height,
             fit,
             rotate,
             crop,
         } => {
             let fit = image_prep::Fit::parse(&fit)?;
             let edit = build_edit(rotate, crop)?;
-            let data = image_prep::prepare_jpeg_with_edit(&image, width, height, fit, &edit)?;
+            let data =
+                image_prep::prepare_jpeg_with_edit(&image, PRINT_WIDTH, PRINT_HEIGHT, fit, &edit)?;
             std::fs::write(&out, &data)
                 .with_context(|| format!("could not write {}", out.display()))?;
             println!(
                 "{} bytes -> {} ({}x{}, rotation {}°, crop {:.2},{:.2} {:.2}x{:.2})",
                 data.len(),
                 out.display(),
-                width,
-                height,
+                PRINT_WIDTH,
+                PRINT_HEIGHT,
                 edit.normalized_rotation(),
                 edit.crop.x,
                 edit.crop.y,
@@ -401,8 +390,6 @@ async fn async_main(cli: Cli) -> Result<()> {
         Command::Print {
             image,
             copies,
-            width,
-            height,
             fit,
             rotate,
             crop,
@@ -414,12 +401,13 @@ async fn async_main(cli: Cli) -> Result<()> {
             }
             let fit = image_prep::Fit::parse(&fit)?;
             let edit = build_edit(rotate, crop)?;
-            let data = image_prep::prepare_jpeg_with_edit(&image, width, height, fit, &edit)?;
+            let data =
+                image_prep::prepare_jpeg_with_edit(&image, PRINT_WIDTH, PRINT_HEIGHT, fit, &edit)?;
             eprintln!(
                 "# prepared {} ({}x{}, {} bytes)",
                 image.display(),
-                width,
-                height,
+                PRINT_WIDTH,
+                PRINT_HEIGHT,
                 data.len()
             );
 

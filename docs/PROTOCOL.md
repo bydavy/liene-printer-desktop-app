@@ -242,6 +242,9 @@ Observed state categories (`DeviceStatusBean` / `PrinterParameter`):
 - `printer-state-alerts` is `::<code>`; e.g. `::5402` paper empty,
   `::5403` paper jam/error, `::8101` ribbon empty. The app's
   `error-handle-parameter` maps these to `resume-printer`.
+- `battery` is a **0–4 level**, not a percentage: 0 empty, 1 low,
+  2 half, 3 75%, 4 full/near-full. The status example above returns
+  `"4"`, meaning the battery is full — not 4%.
 
 Job state via `get-job-info`: `{"job-id": <id>}`. The numeric `job-state`
 maps as follows (`com.hannto.common.n.Q`):

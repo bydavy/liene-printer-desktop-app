@@ -14,6 +14,8 @@ use liene_client::{Fit, NormalizedRect, PhotoEdit};
 use serde_json::Value;
 
 const MAX_ZOOM: f32 = 8.0;
+const PRINT_WIDTH: u32 = 1200;
+const PRINT_HEIGHT: u32 = 1800;
 
 /// Theme-aware colors for the parts of the UI that egui does not style.
 ///
@@ -136,21 +138,6 @@ struct JobUi {
     print_time_ms: u64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Quality {
-    Native,
-    High,
-}
-
-impl Quality {
-    fn dimensions(self) -> (u32, u32) {
-        match self {
-            Self::Native => (600, 900),
-            Self::High => (1200, 1800),
-        }
-    }
-}
-
 struct LieneApp {
     commands: Option<Mutex<ChildStdin>>,
     events: Receiver<Event>,
@@ -178,7 +165,6 @@ struct LieneApp {
 
     copies: u32,
     fit: Fit,
-    quality: Quality,
 
     job: Option<JobUi>,
     upload: Option<(usize, usize)>,
@@ -253,7 +239,6 @@ impl LieneApp {
             crop_drag_start: None,
             copies: 1,
             fit: Fit::Contain,
-            quality: Quality::High,
             job: None,
             upload: None,
             error: startup_error,
@@ -1027,16 +1012,8 @@ impl LieneApp {
                                 .on_hover_text("Keep the whole image, with white borders.");
                         });
 
-                        ui.horizontal(|ui| {
-                            ui.label("Quality");
-                            ui.selectable_value(&mut self.quality, Quality::Native, "600×900")
-                                .on_hover_text("Native 300 dpi output; fastest transfer.");
-                            ui.selectable_value(&mut self.quality, Quality::High, "1200×1800")
-                                .on_hover_text("Oversampled; the printer downscales to 300 dpi.");
-                        });
-
                         ui.add_space(12.0);
-                        let (width, height) = self.quality.dimensions();
+                        let (width, height) = (PRINT_WIDTH, PRINT_HEIGHT);
                         ui.label(
                             RichText::new(format!("Output: {width} × {height} px, 2×3 in"))
                                 .color(palette.muted)
@@ -1154,8 +1131,12 @@ impl LieneApp {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if let Some(battery) = status.battery {
                             ui.label(
-                                RichText::new(format!("Battery {battery}"))
-                                    .color(palette.muted)
+                                RichText::new(battery_label(battery))
+                                    .color(if battery <= 1 {
+                                        palette.red
+                                    } else {
+                                        palette.muted
+                                    })
                                     .small(),
                             );
                         }
@@ -1805,6 +1786,19 @@ fn parse_status(value: &Value) -> Option<StatusView> {
         alerts,
         battery,
     })
+}
+
+/// The printer reports battery as a 0–4 level (0/25/50/75/100% fill), not a
+/// percentage. `4` means full.
+fn battery_label(level: u32) -> String {
+    match level {
+        0 => "Battery empty".to_owned(),
+        1 => "Battery low".to_owned(),
+        2 => "Battery 50%".to_owned(),
+        3 => "Battery 75%".to_owned(),
+        4 => "Battery full".to_owned(),
+        other => format!("Battery {other}/4"),
+    }
 }
 
 fn parse_alerts(value: &str) -> Vec<u32> {
