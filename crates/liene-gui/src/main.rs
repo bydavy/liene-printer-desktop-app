@@ -296,6 +296,25 @@ impl LieneApp {
                 }
             }
         }
+        if let Ok(raw) = std::env::var("LIENE_COLLAGE_FRAME") {
+            let parts: Vec<f32> = raw
+                .split(',')
+                .filter_map(|part| part.parse().ok())
+                .collect();
+            if parts.len() >= 4 {
+                let index = parts[0] as usize;
+                if let Some(collage) = app.collage.as_mut() {
+                    if index < collage.frames.len() {
+                        collage.frames[index] = PhotoFrame {
+                            zoom: parts[1].clamp(1.0, 8.0),
+                            pan_x: parts[2].clamp(-1.0, 1.0),
+                            pan_y: parts[3].clamp(-1.0, 1.0),
+                            rotation: 0,
+                        };
+                    }
+                }
+            }
+        }
         if let Ok(raw) = std::env::var("LIENE_EDIT") {
             match serde_json::from_str::<PhotoEdit>(&raw) {
                 Ok(edit) => {
@@ -850,23 +869,37 @@ impl LieneApp {
                     egui::Stroke::new(1.0, Color32::from_gray(170)),
                     egui::StrokeKind::Inside,
                 );
+                let mut frame_changed = false;
                 if response.dragged() {
                     let delta = response.drag_delta();
                     let slack_x = (local.width() - rect.width()).max(0.0);
                     let slack_y = (local.height() - rect.height()).max(0.0);
                     if slack_x > 0.0 {
                         frame.pan_x = (frame.pan_x + delta.x / (slack_x / 2.0)).clamp(-1.0, 1.0);
+                        frame_changed = true;
                     }
                     if slack_y > 0.0 {
                         frame.pan_y = (frame.pan_y + delta.y / (slack_y / 2.0)).clamp(-1.0, 1.0);
+                        frame_changed = true;
                     }
                 }
                 ui.add_space(8.0);
-                ui.add(
-                    egui::Slider::new(&mut frame.zoom, 1.0..=8.0)
-                        .logarithmic(true)
-                        .text("Zoom"),
-                );
+                if ui
+                    .add(
+                        egui::Slider::new(&mut frame.zoom, 1.0..=8.0)
+                            .logarithmic(true)
+                            .text("Zoom"),
+                    )
+                    .changed()
+                {
+                    frame_changed = true;
+                }
+                if frame_changed {
+                    if let Some(collage) = self.collage.as_mut() {
+                        collage.frames[index] = frame;
+                    }
+                    ui.ctx().request_repaint();
+                }
                 ui.label("Drag the photo to choose the part that prints.");
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
@@ -938,6 +971,7 @@ impl LieneApp {
                 collage.editing_photo = None;
             }
         }
+        ctx.request_repaint();
     }
 
     fn collage_print_window(&mut self, ctx: &egui::Context) {
