@@ -294,6 +294,7 @@ Outputs:
 
 - `target/release/liene-n200` — CLI
 - `target/release/liene-desktop-app` — GUI
+- `target/release/liene-control` — authenticated UI control CLI for testing
 - `dist/Liene Desktop App.app`
 - `dist/Liene-Desktop-App-<version>-macos.dmg` and `.sha256`
 
@@ -309,6 +310,12 @@ run.
 
 Run the app directly with `cargo run -p liene-gui` or
 `open "dist/Liene Desktop App.app"`.
+
+For deterministic UI tests and screenshots, start the app with `--control` and
+use the `liene-control` CLI. It can load images/collages, select layouts, toggle
+borders, randomize, set per-photo zoom/pan/rotation, replace photos, take
+screenshots, and print. The channel is opt-in, authenticated, and loopback-only.
+See [docs/CONTROL.md](docs/CONTROL.md).
 
 ## Development
 

@@ -11,10 +11,16 @@ description = "Desktop app for Liene/Hannto photo printers"
 name = "liene-desktop-app"
 path = "src/main.rs"
 
+[[bin]]
+name = "liene-control"
+path = "src/bin/liene-control.rs"
+
 [dependencies]
 anyhow = "1"
 eframe = "0.37"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 liene-client = { path = "../liene-client" }
 rfd = "0.18"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+clap = { version = "4", features = ["derive"] }

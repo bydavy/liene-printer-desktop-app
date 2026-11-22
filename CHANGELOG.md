@@ -9,6 +9,8 @@
 - Collage layout options use white/grey diagram icons instead of text labels.
 - Per-photo frame editor with zoom, pan, 90° rotation, replacement, and reset.
 - A Borders checkbox (on by default) and an explicit Randomize button.
+- Opt-in authenticated loopback UI control channel (`--control`) and
+  `liene-control` CLI for deterministic collage/editor tests and screenshots.
 
 ## [0.3.2] - 2026-11-22
 

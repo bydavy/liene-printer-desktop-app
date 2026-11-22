@@ -2001,10 +2001,12 @@ name = "liene-gui"
 version = "0.3.2"
 dependencies = [
  "anyhow",
+ "clap",
  "eframe",
  "image",
  "liene-client",
  "rfd",
+ "serde",
  "serde_json",
 ]
 

@@ -12,7 +12,8 @@ use egui::{Color32, RichText};
 use liene_client::collage::{self, CollageLayout, PhotoFrame};
 use liene_client::daemon::{CollageRequest, Command, Event, PrintRequest};
 use liene_client::{Fit, NormalizedRect, PhotoEdit};
-use serde_json::Value;
+use liene_gui::control::{self, ControlJob, Response};
+use serde_json::{json, Value};
 
 const MAX_ZOOM: f32 = 8.0;
 const PRINT_WIDTH: u32 = 1200;
@@ -109,6 +110,7 @@ fn light_visuals() -> egui::Visuals {
 }
 
 fn main() -> eframe::Result<()> {
+    let control_enabled = std::env::args().any(|arg| arg == "--control");
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1040.0, 760.0])
@@ -119,7 +121,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Liene Desktop App",
         options,
-        Box::new(|cc| Ok(Box::new(LieneApp::new(cc)))),
+        Box::new(move |cc| Ok(Box::new(LieneApp::new(cc, control_enabled)))),
     )
 }
 
@@ -194,10 +196,12 @@ struct LieneApp {
     no_connect: bool,
     /// Keep the page at the top while taking a repeatable screenshot.
     pin_scroll_top: bool,
+    control_rx: Option<Receiver<ControlJob>>,
+    control_file: Option<PathBuf>,
 }
 
 impl LieneApp {
-    fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    fn new(cc: &eframe::CreationContext<'_>, control_enabled: bool) -> Self {
         // Follow the OS appearance by default; the env var is a screenshot /
         // diagnostics hook for forcing a theme without changing the system.
         match std::env::var("LIENE_THEME").as_deref() {
@@ -218,6 +222,22 @@ impl LieneApp {
             .set_visuals_of(egui::Theme::Dark, dark_visuals());
         cc.egui_ctx
             .set_visuals_of(egui::Theme::Light, light_visuals());
+
+        let (control_rx, control_file) = if control_enabled {
+            let path = control::default_discovery_path();
+            match control::start_server(&path) {
+                Ok((_discovery, rx)) => {
+                    eprintln!("# UI control channel: {}", path.display());
+                    (Some(rx), Some(path))
+                }
+                Err(err) => {
+                    eprintln!("# could not start UI control channel: {err:#}");
+                    (None, None)
+                }
+            }
+        } else {
+            (None, None)
+        };
 
         let (commands, child, events, startup_error) = match spawn_helper() {
             Ok((stdin, child, events)) => (Some(Mutex::new(stdin)), Some(child), events, None),
@@ -267,6 +287,8 @@ impl LieneApp {
             frames: 0,
             no_connect: std::env::var_os("LIENE_NO_CONNECT").is_some(),
             pin_scroll_top: std::env::var_os("LIENE_SCREENSHOT").is_some(),
+            control_rx,
+            control_file,
         };
         if let Some(path) = std::env::var_os("LIENE_IMAGE") {
             app.load_image(PathBuf::from(path), &cc.egui_ctx);
@@ -1890,8 +1912,378 @@ impl LieneApp {
     }
 }
 
+impl LieneApp {
+    fn process_control(&mut self, ctx: &egui::Context) {
+        let Some(rx) = self.control_rx.take() else {
+            return;
+        };
+        while let Ok(job) = rx.try_recv() {
+            self.handle_control_job(ctx, job);
+        }
+        self.control_rx = Some(rx);
+    }
+
+    fn handle_control_job(&mut self, ctx: &egui::Context, job: ControlJob) {
+        if job.request.action == "ui.screenshot" {
+            let Some(path) = job
+                .request
+                .params
+                .get("path")
+                .and_then(Value::as_str)
+                .map(PathBuf::from)
+            else {
+                let _ = job
+                    .reply
+                    .send(Response::error("screenshot requires a path"));
+                return;
+            };
+            let reply = job.reply;
+            ctx.request_screenshot(move |image| {
+                let mut rgba = Vec::with_capacity(image.pixels.len() * 4);
+                for pixel in &image.pixels {
+                    rgba.extend_from_slice(&pixel.to_array());
+                }
+                let response = match image::save_buffer(
+                    &path,
+                    &rgba,
+                    image.size[0] as u32,
+                    image.size[1] as u32,
+                    image::ColorType::Rgba8,
+                ) {
+                    Ok(()) => Response::ok(format!("screenshot saved to {}", path.display())),
+                    Err(err) => Response::error(format!("screenshot failed: {err}")),
+                };
+                let _ = reply.send(response);
+            });
+            return;
+        }
+
+        let response = self.apply_control(ctx, &job.request);
+        let _ = job.reply.send(response);
+        ctx.request_repaint();
+    }
+
+    fn apply_control(&mut self, ctx: &egui::Context, request: &control::Request) -> Response {
+        let result = (|| -> anyhow::Result<Response> {
+            let params = &request.params;
+            match request.action.as_str() {
+                "state" => Ok(Response::with_state("state", self.control_state())),
+                "image.open" => {
+                    let path = params
+                        .get("path")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| anyhow::anyhow!("image.open requires path"))?;
+                    self.load_image(PathBuf::from(path), ctx);
+                    Ok(Response::with_state("image opened", self.control_state()))
+                }
+                "collage.open" => {
+                    let paths: Vec<PathBuf> = params
+                        .get("paths")
+                        .and_then(Value::as_array)
+                        .map(|items| {
+                            items
+                                .iter()
+                                .filter_map(Value::as_str)
+                                .map(PathBuf::from)
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    if paths.is_empty() {
+                        anyhow::bail!("collage.open requires at least two paths");
+                    }
+                    self.load_collage(paths, ctx);
+                    if self.collage.is_none() {
+                        anyhow::bail!(
+                            "{}",
+                            self.error
+                                .clone()
+                                .unwrap_or_else(|| "could not open the collage".to_owned())
+                        );
+                    }
+                    Ok(Response::with_state("collage opened", self.control_state()))
+                }
+                "collage.layout" => {
+                    let id = params
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| anyhow::anyhow!("collage.layout requires id"))?;
+                    let Some(collage) = self.collage.as_mut() else {
+                        anyhow::bail!("no collage is open");
+                    };
+                    let Some(index) = collage.layouts.iter().position(|layout| layout.id == id)
+                    else {
+                        anyhow::bail!("unknown collage layout '{id}'");
+                    };
+                    collage.selected = index;
+                    Ok(Response::with_state(
+                        "layout selected",
+                        self.control_state(),
+                    ))
+                }
+                "collage.borders" => {
+                    let enabled = params
+                        .get("enabled")
+                        .and_then(Value::as_bool)
+                        .ok_or_else(|| anyhow::anyhow!("collage.borders requires enabled"))?;
+                    let Some(collage) = self.collage.as_mut() else {
+                        anyhow::bail!("no collage is open");
+                    };
+                    collage.borders = enabled;
+                    Ok(Response::with_state(
+                        "borders updated",
+                        self.control_state(),
+                    ))
+                }
+                "collage.randomize" => {
+                    let Some(collage) = self.collage.as_mut() else {
+                        anyhow::bail!("no collage is open");
+                    };
+                    shuffle_collage(collage);
+                    Ok(Response::with_state(
+                        "photos randomized",
+                        self.control_state(),
+                    ))
+                }
+                "collage.frame.set" => {
+                    let index = index_param(params)?;
+                    let frame = PhotoFrame {
+                        zoom: params
+                            .get("zoom")
+                            .and_then(Value::as_f64)
+                            .map(|value| value as f32)
+                            .unwrap_or(1.0),
+                        pan_x: params
+                            .get("pan_x")
+                            .and_then(Value::as_f64)
+                            .map(|value| value as f32)
+                            .unwrap_or(0.0),
+                        pan_y: params
+                            .get("pan_y")
+                            .and_then(Value::as_f64)
+                            .map(|value| value as f32)
+                            .unwrap_or(0.0),
+                        rotation: params
+                            .get("rotation")
+                            .and_then(Value::as_u64)
+                            .map(|value| value as u32)
+                            .unwrap_or(0),
+                    };
+                    self.set_collage_frame(index, frame, ctx)?;
+                    Ok(Response::with_state("frame updated", self.control_state()))
+                }
+                "collage.frame.reset" => {
+                    let index = index_param(params)?;
+                    self.set_collage_frame(index, PhotoFrame::default(), ctx)?;
+                    Ok(Response::with_state("frame reset", self.control_state()))
+                }
+                "collage.frame.rotate" => {
+                    let index = index_param(params)?;
+                    let Some(collage) = self.collage.as_ref() else {
+                        anyhow::bail!("no collage is open");
+                    };
+                    let Some(current) = collage.frames.get(index) else {
+                        anyhow::bail!("photo index {index} is out of range");
+                    };
+                    let frame = PhotoFrame {
+                        rotation: (current.rotation + 90) % 360,
+                        ..PhotoFrame::default()
+                    };
+                    self.set_collage_frame(index, frame, ctx)?;
+                    Ok(Response::with_state("photo rotated", self.control_state()))
+                }
+                "collage.frame.replace" => {
+                    let index = index_param(params)?;
+                    let path = params
+                        .get("path")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| anyhow::anyhow!("collage.frame.replace requires path"))?;
+                    self.replace_collage_photo(index, PathBuf::from(path), ctx)?;
+                    Ok(Response::with_state("photo replaced", self.control_state()))
+                }
+                "collage.frame.open" => {
+                    let index = index_param(params)?;
+                    let Some(collage) = self.collage.as_mut() else {
+                        anyhow::bail!("no collage is open");
+                    };
+                    if index >= collage.paths.len() {
+                        anyhow::bail!("photo index {index} is out of range");
+                    }
+                    collage.editing_photo = Some(index);
+                    Ok(Response::with_state(
+                        "frame editor opened",
+                        self.control_state(),
+                    ))
+                }
+                "collage.frame.close" => {
+                    if let Some(collage) = self.collage.as_mut() {
+                        collage.editing_photo = None;
+                    }
+                    Ok(Response::with_state(
+                        "frame editor closed",
+                        self.control_state(),
+                    ))
+                }
+                "collage.print_preview" => {
+                    if self.collage.is_none() {
+                        anyhow::bail!("no collage is open");
+                    }
+                    self.collage_previewing = true;
+                    Ok(Response::with_state(
+                        "print preview opened",
+                        self.control_state(),
+                    ))
+                }
+                "collage.print" => {
+                    let copies = params
+                        .get("copies")
+                        .and_then(Value::as_u64)
+                        .map(|value| value as u32)
+                        .unwrap_or(1);
+                    self.print_collage(copies)?;
+                    Ok(Response::with_state("print started", self.control_state()))
+                }
+                "ui.quit" => {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    Ok(Response::ok("quitting"))
+                }
+                other => anyhow::bail!("unknown UI action '{other}'"),
+            }
+        })();
+        result.unwrap_or_else(|err| Response::error(format!("{err:#}")))
+    }
+
+    fn set_collage_frame(
+        &mut self,
+        index: usize,
+        frame: PhotoFrame,
+        ctx: &egui::Context,
+    ) -> anyhow::Result<()> {
+        let (rotation_changed, source) = {
+            let Some(collage) = self.collage.as_ref() else {
+                anyhow::bail!("no collage is open");
+            };
+            if index >= collage.frames.len() {
+                anyhow::bail!("photo index {index} is out of range");
+            }
+            (
+                collage.frames[index].rotation % 360 != frame.rotation % 360,
+                collage.sources.get(index).cloned(),
+            )
+        };
+        if rotation_changed {
+            let source = source.ok_or_else(|| anyhow::anyhow!("missing photo source"))?;
+            let rotated = rotate_rgba(&source, frame.rotation % 360);
+            let texture = texture_from_rgba(
+                ctx,
+                &rotated,
+                format!("collage-{index}-rot-{}", frame.rotation % 360),
+            );
+            if let Some(collage) = self.collage.as_mut() {
+                collage.textures[index] = texture;
+            }
+        }
+        if let Some(collage) = self.collage.as_mut() {
+            collage.frames[index] = frame;
+        }
+        ctx.request_repaint();
+        Ok(())
+    }
+
+    fn replace_collage_photo(
+        &mut self,
+        index: usize,
+        path: PathBuf,
+        ctx: &egui::Context,
+    ) -> anyhow::Result<()> {
+        let image = liene_client::image_prep::load_oriented(&path)?;
+        let rgba = image.thumbnail(1200, 1200).to_rgba8();
+        let texture = texture_from_rgba(
+            ctx,
+            &rgba,
+            format!("collage-{index}-replace-{}", std::process::id()),
+        );
+        let Some(collage) = self.collage.as_mut() else {
+            anyhow::bail!("no collage is open");
+        };
+        if index >= collage.paths.len() {
+            anyhow::bail!("photo index {index} is out of range");
+        }
+        collage.paths[index] = path;
+        collage.sources[index] = rgba;
+        collage.textures[index] = texture;
+        collage.frames[index] = PhotoFrame::default();
+        ctx.request_repaint();
+        Ok(())
+    }
+
+    fn print_collage(&mut self, copies: u32) -> anyhow::Result<()> {
+        let Some(collage) = self.collage.as_ref() else {
+            anyhow::bail!("no collage is open");
+        };
+        if self.connected.is_none() {
+            anyhow::bail!("connect the printer before printing");
+        }
+        if self.busy {
+            anyhow::bail!("the printer is busy");
+        }
+        if self.printer_has_alert() {
+            anyhow::bail!("resolve the printer alert before printing");
+        }
+        let layout = collage
+            .layouts
+            .get(collage.selected)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("invalid collage layout"))?;
+        let paths = collage.paths.clone();
+        let frames = collage.frames.clone();
+        let borders = collage.borders;
+        self.busy = true;
+        self.job = None;
+        self.upload = None;
+        self.error = None;
+        self.collage_previewing = false;
+        self.push_log(format!("Printing collage with {} photos…", paths.len()));
+        self.send(Command::PrintCollage(CollageRequest {
+            paths,
+            layout: layout.id.to_owned(),
+            copies: copies.clamp(1, 9),
+            borders,
+            frames,
+        }));
+        Ok(())
+    }
+
+    fn control_state(&self) -> Value {
+        let collage = self.collage.as_ref().map(|collage| {
+            json!({
+                "paths": collage.paths.iter().map(|path| path.display().to_string()).collect::<Vec<_>>(),
+                "layout": collage.layouts.get(collage.selected).map(|layout| layout.id),
+                "layout_name": collage.layouts.get(collage.selected).map(|layout| layout.name),
+                "borders": collage.borders,
+                "copies": collage.copies,
+                "editing_photo": collage.editing_photo,
+                "frames": collage.frames,
+                "previewing": self.collage_previewing,
+                "photo_count": collage.paths.len(),
+            })
+        });
+        json!({
+            "image_path": self.image_path.as_ref().map(|path| path.display().to_string()),
+            "collage": collage,
+            "connected": self.connected.as_ref().map(|device| json!({
+                "name": device.name,
+                "address": device.address,
+            })),
+            "busy": self.busy,
+            "error": self.error,
+        })
+    }
+}
+
 impl eframe::App for LieneApp {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.process_control(ctx);
+
         if std::mem::take(&mut self.auto_connect) && !self.no_connect {
             self.send(Command::Connect {
                 name: self.device_prefix.clone(),
@@ -1942,6 +2334,9 @@ impl eframe::App for LieneApp {
     }
 
     fn on_exit(&mut self) {
+        if let Some(path) = self.control_file.take() {
+            control::remove_discovery(&path);
+        }
         if let Some(mut child) = self._child.take() {
             let _ = child.kill();
             let _ = child.wait();
@@ -2176,6 +2571,14 @@ fn paint_collage(
         egui::Stroke::new(1.0, Color32::from_gray(190)),
         egui::StrokeKind::Inside,
     );
+}
+
+fn index_param(params: &Value) -> anyhow::Result<usize> {
+    params
+        .get("index")
+        .and_then(Value::as_u64)
+        .map(|value| value as usize)
+        .ok_or_else(|| anyhow::anyhow!("action requires index"))
 }
 
 fn spawn_helper() -> anyhow::Result<(ChildStdin, Child, Receiver<Event>)> {
