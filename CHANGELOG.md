@@ -11,6 +11,8 @@
 
 - Print resolution is fixed at 1200×1800 in the GUI and CLI. The 600×900
   selector and the `--width`/`--height` overrides were removed.
+- The photo editor and print preview now have square corners so the framing
+  matches the printed paper.
 
 ## [0.3.1] - 2026-11-21
 

@@ -677,7 +677,6 @@ impl LieneApp {
             } else {
                 ui.visuals().extreme_bg_color
             })
-            .corner_radius(8.0)
             .stroke(egui::Stroke::new(
                 1.0,
                 if drop_hover {
@@ -893,7 +892,7 @@ impl LieneApp {
         let painter = ui.painter_at(rect);
 
         // White paper; for Fit the padding remains visible around the image.
-        painter.rect_filled(rect, 2.0, Color32::WHITE);
+        painter.rect_filled(rect, 0.0, Color32::WHITE);
 
         let texture = self.preview.clone();
         if let Some(texture) = texture {
@@ -966,7 +965,7 @@ impl LieneApp {
 
         painter.rect_stroke(
             rect,
-            2.0,
+            0.0,
             egui::Stroke::new(1.0, Color32::from_gray(190)),
             egui::StrokeKind::Inside,
         );
