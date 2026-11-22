@@ -569,27 +569,12 @@ impl LieneApp {
                 ui.horizontal_wrapped(|ui| {
                     let mut needs_preview = false;
                     if ui
-                        .add_enabled(self.preview.is_some(), egui::Button::new("Rotate left"))
-                        .clicked()
-                    {
-                        self.edit.rotate_ccw();
-                        needs_preview = true;
-                    }
-                    if ui
-                        .add_enabled(self.preview.is_some(), egui::Button::new("Rotate right"))
+                        .add_enabled(self.preview.is_some(), egui::Button::new("Rotate 90°"))
+                        .on_hover_text("Rotate clockwise in 90° steps")
                         .clicked()
                     {
                         self.edit.rotate_cw();
                         needs_preview = true;
-                    }
-                    if ui
-                        .add_enabled(self.preview.is_some(), egui::Button::new("2:3 crop"))
-                        .on_hover_text("Snap the crop to the 2×3 print aspect")
-                        .clicked()
-                    {
-                        let width = self.preview_size.x.max(1.0) as u32;
-                        let height = self.preview_size.y.max(1.0) as u32;
-                        self.edit.set_print_aspect_crop(width, height);
                     }
                     if ui
                         .add_enabled(self.preview.is_some(), egui::Button::new("Reset"))

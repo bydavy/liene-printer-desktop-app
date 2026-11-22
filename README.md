@@ -184,14 +184,14 @@ The app auto-connects to the paired printer and provides:
 
 - **Photo**: drag and drop, or choose a JPEG/PNG.
 - **Editing**:
-  - Rotate left/right in 90° steps; the crop rotates with the image.
+  - Rotate 90° clockwise (repeat to keep turning); the crop rotates with the
+    image.
   - **Lock 2:3** keeps the crop at the print aspect. Drag the rectangle to
     move the frame, drag a corner to resize proportionally, or use the
     **Zoom** slider (1×–8×) to frame around its center.
   - Unlock for freeform corner/edge cropping. The outside is dimmed with
     rule-of-thirds guides.
-  - **2:3 crop** snaps to the largest centered 2:3 frame; **Reset** starts
-    over.
+  - **Reset** starts over.
 - **Print settings**: copies (1–9), **Fit** (contain, default; white borders)
   or **Fill** (cover; crops to the print). The canvas is always 1200×1800 (2×
   the native 300 dpi output).

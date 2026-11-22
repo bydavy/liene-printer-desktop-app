@@ -13,6 +13,9 @@
   selector and the `--width`/`--height` overrides were removed.
 - The photo editor and print preview now have square corners so the framing
   matches the printed paper.
+- The two rotate buttons are replaced by a single **Rotate 90°** button.
+- The redundant **2:3 crop** button is removed; **Lock 2:3** performs the
+  same snap.
 
 ## [0.3.1] - 2026-11-21
 
