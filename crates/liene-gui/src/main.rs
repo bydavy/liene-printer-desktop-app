@@ -649,8 +649,8 @@ impl LieneApp {
                         .unwrap_or("printer");
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing.x = 6.0;
-                        status_dot(ui, dot, true);
                         ui.colored_label(dot, name);
+                        status_dot(ui, dot, true);
                     });
                 } else {
                     if ui
@@ -664,8 +664,8 @@ impl LieneApp {
                     }
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing.x = 6.0;
-                        status_dot(ui, palette.muted, false);
                         ui.colored_label(palette.muted, "Disconnected");
+                        status_dot(ui, palette.muted, false);
                     });
                 }
             });
