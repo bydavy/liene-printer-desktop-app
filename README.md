@@ -329,6 +329,22 @@ CI runs these checks on macOS, Linux, and Windows. Hardware tests require a
 printer; the unit tests cover framing, chunking, the edit/zoom model, and the
 image pipeline.
 
+The UI also has `egui_kittest` screenshot and interaction tests for the editor,
+collage panel, frame editor, and print preview. Goldens live in
+`crates/liene-gui/tests/snapshots` and are recorded/verified with:
+
+```sh
+# Compare against the committed snapshots (runs on macOS; other platforms
+# skip the pixel comparisons but still run the interaction tests).
+cargo test -p liene-gui
+
+# Re-record after an intentional UI change.
+UPDATE_SNAPSHOTS=true cargo test -p liene-gui
+```
+
+The control channel has headless integration tests covering token rejection,
+request forwarding, and discovery-file permissions.
+
 The UI follows the system light/dark appearance. To preview a theme without
 changing your OS setting, launch with `LIENE_THEME=light` or
 `LIENE_THEME=dark` (also used by the screenshot tooling).

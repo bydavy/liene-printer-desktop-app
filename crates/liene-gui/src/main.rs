@@ -200,6 +200,16 @@ struct LieneApp {
     control_file: Option<PathBuf>,
 }
 
+fn status_dot(ui: &mut egui::Ui, color: Color32, filled: bool) {
+    let (rect, _) = ui.allocate_exact_size(egui::vec2(10.0, 10.0), egui::Sense::hover());
+    if filled {
+        ui.painter().circle_filled(rect.center(), 4.0, color);
+    } else {
+        ui.painter()
+            .circle_stroke(rect.center(), 3.5, egui::Stroke::new(1.5, color));
+    }
+}
+
 impl LieneApp {
     fn new(cc: &eframe::CreationContext<'_>, control_enabled: bool) -> Self {
         // Follow the OS appearance by default; the env var is a screenshot /
@@ -637,7 +647,11 @@ impl LieneApp {
                         .as_ref()
                         .map(|d| d.name.as_str())
                         .unwrap_or("printer");
-                    ui.colored_label(dot, format!("● {name}"));
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 6.0;
+                        status_dot(ui, dot, true);
+                        ui.colored_label(dot, name);
+                    });
                 } else {
                     if ui
                         .add_enabled(!self.busy, egui::Button::new("Connect"))
@@ -648,7 +662,11 @@ impl LieneApp {
                             scan_secs: self.scan_secs,
                         });
                     }
-                    ui.colored_label(palette.muted, "○ Disconnected");
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 6.0;
+                        status_dot(ui, palette.muted, false);
+                        ui.colored_label(palette.muted, "Disconnected");
+                    });
                 }
             });
         });
@@ -742,6 +760,13 @@ impl LieneApp {
                                 egui::vec2(width, width * 1.5),
                                 egui::Sense::click(),
                             );
+                            response.widget_info(|| {
+                                egui::WidgetInfo::labeled(
+                                    egui::Role::Button,
+                                    true,
+                                    "Collage preview",
+                                )
+                            });
                             paint_collage(
                                 &ui.painter_at(rect),
                                 rect,
@@ -877,6 +902,9 @@ impl LieneApp {
                     egui::vec2(viewport_width, viewport_height),
                     egui::Sense::click_and_drag(),
                 );
+                response.widget_info(|| {
+                    egui::WidgetInfo::labeled(egui::Role::Image, true, "Photo framing")
+                });
                 let local = photo_draw_rect(texture.size_vec2(), rect.size(), frame);
                 let draw = local.translate(rect.min.to_vec2());
                 ui.painter().with_clip_rect(rect).image(
@@ -1067,8 +1095,9 @@ impl LieneApp {
                 });
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
-                    ui.label("Copies");
-                    ui.add(egui::DragValue::new(&mut copies).range(1..=9));
+                    let label = ui.label("Copies");
+                    ui.add(egui::DragValue::new(&mut copies).range(1..=9))
+                        .labelled_by(label.id);
                 });
                 ui.add_space(4.0);
                 let mut status_line = format!("{printer_name} · {status_text}");
@@ -1288,6 +1317,13 @@ impl LieneApp {
                             ui.scope_id().with("crop-overlay"),
                             egui::Sense::click_and_drag(),
                         );
+                        response.widget_info(|| {
+                            egui::WidgetInfo::labeled(
+                                egui::Role::Image,
+                                ui.is_enabled(),
+                                "Photo crop",
+                            )
+                        });
                         self.crop_interactions(ui, &response, image_rect);
                         self.paint_crop_overlay(&painter, image_rect);
                     }
@@ -1570,12 +1606,13 @@ impl LieneApp {
                         ui.set_width(left_width);
 
                         ui.horizontal(|ui| {
-                            ui.label("Copies");
+                            let label = ui.label("Copies");
                             ui.add(
                                 egui::DragValue::new(&mut self.copies)
                                     .range(1..=9)
                                     .speed(0.1),
-                            );
+                            )
+                            .labelled_by(label.id);
                             ui.label(RichText::new("1–9").color(palette.muted).small());
                         });
 
@@ -1701,7 +1738,7 @@ impl LieneApp {
             .inner_margin(16.0)
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    ui.colored_label(color, "●");
+                    status_dot(ui, color, true);
                     ui.label(RichText::new(label).size(17.0).strong());
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if let Some(battery) = status.battery {
@@ -2430,6 +2467,9 @@ fn layout_icon(
         },
         egui::StrokeKind::Inside,
     );
+    response.widget_info(|| {
+        egui::WidgetInfo::selected(egui::Role::Button, ui.is_enabled(), selected, layout.name)
+    });
     response
         .on_hover_cursor(egui::CursorIcon::PointingHand)
         .on_hover_text(layout.name)
@@ -3111,5 +3151,240 @@ mod tests {
         assert!(centered.left() > 0.0);
         assert_eq!(left.left(), 0.0);
         assert!((right.right() - 1.0).abs() < 1e-5);
+    }
+}
+
+#[cfg(test)]
+mod kittest_tests {
+    use super::*;
+    use egui_kittest::kittest::Queryable;
+    use egui_kittest::{Harness, SnapshotOptions};
+
+    fn fixture_paths(tag: &str) -> Vec<PathBuf> {
+        let dir = std::env::temp_dir().join(format!("liene-kittest-{}-{tag}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("create fixture directory");
+        let colors = [[214, 58, 48], [42, 158, 92], [52, 88, 214]];
+        (0..3)
+            .map(|index| {
+                let path = dir.join(format!("photo-{index}.png"));
+                let base = colors[index];
+                let mut pixels = image::RgbaImage::new(600, 900);
+                for (x, y, pixel) in pixels.enumerate_pixels_mut() {
+                    let shade = 0.65 + 0.35 * (1.0 - (x + y) as f32 / 1500.0);
+                    let mut rgba = [
+                        (base[0] as f32 * shade) as u8,
+                        (base[1] as f32 * shade) as u8,
+                        (base[2] as f32 * shade) as u8,
+                        255,
+                    ];
+                    if (300..360).contains(&y) {
+                        rgba = [245, 245, 245, 255];
+                    }
+                    *pixel = image::Rgba(rgba);
+                }
+                pixels.save(&path).expect("save fixture image");
+                path
+            })
+            .collect()
+    }
+
+    fn snapshot_options() -> SnapshotOptions {
+        SnapshotOptions::default()
+            .output_path(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/snapshots"))
+    }
+
+    fn test_harness(
+        tag: &str,
+        seed: impl FnOnce(&mut LieneApp, &egui::Context, Vec<PathBuf>) + 'static,
+    ) -> Harness<'static, LieneApp> {
+        let paths = fixture_paths(tag);
+        Harness::builder()
+            .with_size(egui::vec2(1040.0, 760.0))
+            .with_theme(egui::Theme::Dark)
+            .with_os(egui::os::OperatingSystem::Nix)
+            .with_options(snapshot_options())
+            .build_eframe(move |cc| {
+                let mut app = LieneApp::new(cc, false);
+                app.no_connect = true;
+                app.auto_connect = false;
+                app.error = None;
+                app.pin_scroll_top = true;
+                seed(&mut app, &cc.egui_ctx, paths);
+                app
+            })
+    }
+
+    fn seed_collage(app: &mut LieneApp, ctx: &egui::Context, paths: Vec<PathBuf>) {
+        app.load_collage(paths, ctx);
+        let collage = app.collage.as_mut().expect("collage should load");
+        collage.selected = collage
+            .layouts
+            .iter()
+            .position(|layout| layout.id == "h3")
+            .expect("three-photo layouts include h3");
+        collage.frames[0] = PhotoFrame {
+            zoom: 2.0,
+            pan_x: 1.0,
+            ..PhotoFrame::default()
+        };
+    }
+
+    fn seed_frame_editor(app: &mut LieneApp, ctx: &egui::Context, paths: Vec<PathBuf>) {
+        seed_collage(app, ctx, paths);
+        app.collage.as_mut().expect("collage").editing_photo = Some(0);
+    }
+
+    fn seed_print_preview(app: &mut LieneApp, ctx: &egui::Context, paths: Vec<PathBuf>) {
+        seed_collage(app, ctx, paths);
+        let collage = app.collage.as_mut().expect("collage");
+        collage.copies = 2;
+        app.collage_previewing = true;
+    }
+
+    fn seed_photo_editor(app: &mut LieneApp, ctx: &egui::Context, paths: Vec<PathBuf>) {
+        app.load_image(paths.into_iter().next().expect("fixture path"), ctx);
+        // Keep the machine-specific fixture path out of the snapshot.
+        app.image_path = None;
+    }
+
+    #[test]
+    fn collage_layout_borders_and_preview_clicks_update_state() {
+        let mut harness = test_harness("collage-interactions", seed_collage);
+        harness.run_steps(3);
+
+        harness.get_by_label("Vertical").click();
+        harness.run_steps(3);
+        {
+            let collage = harness.state().collage.as_ref().expect("collage");
+            assert_eq!(collage.layouts[collage.selected].id, "v3");
+        }
+
+        harness.get_by_label("Borders").click();
+        harness.run_steps(3);
+        assert!(!harness.state().collage.as_ref().expect("collage").borders);
+
+        harness.get_by_label("Randomize").click();
+        harness.run_steps(3);
+        assert_eq!(
+            harness
+                .state()
+                .collage
+                .as_ref()
+                .expect("collage")
+                .paths
+                .len(),
+            3
+        );
+
+        harness.get_by_label("Collage preview").click();
+        harness.run_steps(3);
+        assert_eq!(
+            harness
+                .state()
+                .collage
+                .as_ref()
+                .expect("collage")
+                .editing_photo,
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn frame_editor_rotate_reset_and_done_update_state() {
+        let mut harness = test_harness("frame-editor", seed_frame_editor);
+        harness.run_steps(3);
+
+        harness.get_by_label("Rotate 90°").click();
+        harness.run_steps(3);
+        assert_eq!(
+            harness.state().collage.as_ref().expect("collage").frames[0].rotation,
+            90
+        );
+
+        harness.get_by_label("Reset").click();
+        harness.run_steps(3);
+        assert_eq!(
+            harness.state().collage.as_ref().expect("collage").frames[0].rotation,
+            0
+        );
+
+        harness.get_by_label("Done").click();
+        harness.run_steps(3);
+        assert!(harness
+            .state()
+            .collage
+            .as_ref()
+            .expect("collage")
+            .editing_photo
+            .is_none());
+    }
+
+    #[test]
+    fn print_preview_back_closes_the_window() {
+        let mut harness = test_harness("print-preview-back", seed_print_preview);
+        harness.run_steps(3);
+        assert!(harness.state().collage_previewing);
+
+        harness.get_by_label("Back").click();
+        harness.run_steps(3);
+        assert!(!harness.state().collage_previewing);
+    }
+
+    #[test]
+    fn photo_editor_fit_and_rotate_update_state() {
+        let mut harness = test_harness("photo-editor", seed_photo_editor);
+        harness.run_steps(3);
+
+        harness.get_by_label("Fill").click();
+        harness.run_steps(3);
+        assert_eq!(harness.state().fit, Fit::Cover);
+
+        harness.get_by_label("Fit").click();
+        harness.run_steps(3);
+        assert_eq!(harness.state().fit, Fit::Contain);
+
+        harness.get_by_label("Rotate 90°").click();
+        harness.run_steps(3);
+        assert_eq!(harness.state().edit.normalized_rotation(), 90);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn empty_window_snapshot() {
+        let mut harness = test_harness("snapshot-empty", |_, _, _| {});
+        harness.run_steps(3);
+        harness.snapshot("main/empty");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn photo_editor_snapshot() {
+        let mut harness = test_harness("snapshot-photo", seed_photo_editor);
+        harness.run_steps(3);
+        harness.snapshot("editor/photo");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn collage_panel_snapshot() {
+        let mut harness = test_harness("snapshot-collage", seed_collage);
+        harness.run_steps(3);
+        harness.snapshot("collage/panel");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn frame_editor_snapshot() {
+        let mut harness = test_harness("snapshot-frame", seed_frame_editor);
+        harness.run_steps(3);
+        harness.snapshot("collage/frame-editor");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn print_preview_snapshot() {
+        let mut harness = test_harness("snapshot-print", seed_print_preview);
+        harness.run_steps(3);
+        harness.snapshot("collage/print-preview");
     }
 }

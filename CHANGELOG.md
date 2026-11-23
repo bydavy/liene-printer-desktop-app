@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- `egui_kittest` screenshot and interaction tests for the photo editor,
+  collage panel, frame editor, and print preview, plus headless tests for the
+  UI control channel (token rejection, request forwarding, and discovery-file
+  permissions).
+
+### Fixed
+
+- Printer status dots are painted instead of using `●`/`○` text glyphs, which
+  are missing from egui's bundled fonts on some systems.
+- Copies fields now expose accessible labels.
+
 ## [0.3.3] - 2026-11-22
 
 ### Added

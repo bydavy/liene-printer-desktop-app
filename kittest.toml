@@ -1,0 +1,6 @@
+# egui_kittest snapshot comparison settings.
+# The output path is set from CARGO_MANIFEST_DIR in the tests so it does not
+# depend on the working directory. Update goldens with
+# `UPDATE_SNAPSHOTS=true cargo test -p liene-gui`.
+threshold = 0.6
+max_failed_pixels = 0

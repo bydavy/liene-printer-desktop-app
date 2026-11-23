@@ -205,3 +205,108 @@ fn make_token() -> String {
     let pid = u128::from(std::process::id());
     format!("{:032x}", nanos ^ (pid << 64) ^ 0x9e37_79b9_7f4a_7c15)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn test_path(name: &str) -> PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "liene-control-test-{}-{name}.json",
+            std::process::id()
+        ));
+        let _ = fs::remove_file(&path);
+        path
+    }
+
+    fn discovery_after_start(path: &Path) -> Discovery {
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        loop {
+            if let Ok(text) = fs::read_to_string(path) {
+                if let Ok(discovery) = serde_json::from_str(&text) {
+                    return discovery;
+                }
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "control discovery file was not written"
+            );
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    fn raw_request(port: u16, token: &str, action: &str) -> Response {
+        let mut stream =
+            TcpStream::connect(("127.0.0.1", port)).expect("connect to control server");
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .expect("read timeout");
+        let request = Request {
+            token: token.to_owned(),
+            action: action.to_owned(),
+            params: Value::Null,
+        };
+        writeln!(stream, "{}", serde_json::to_string(&request).unwrap()).unwrap();
+        let mut line = String::new();
+        BufReader::new(stream).read_line(&mut line).unwrap();
+        serde_json::from_str(&line).unwrap()
+    }
+
+    #[test]
+    fn rejects_requests_with_the_wrong_token() {
+        let path = test_path("wrong-token");
+        let (_discovery, _jobs) = start_server(&path).expect("start control server");
+        let discovery = discovery_after_start(&path);
+
+        let response = raw_request(discovery.port, "not-the-token", "state");
+        assert!(!response.ok);
+        assert_eq!(response.error.as_deref(), Some("invalid control token"));
+
+        remove_discovery(&path);
+    }
+
+    #[test]
+    fn forwards_authenticated_requests_to_the_ui() {
+        let path = test_path("round-trip");
+        let (_discovery, jobs) = start_server(&path).expect("start control server");
+        let _ = discovery_after_start(&path);
+
+        let ui = thread::spawn(move || {
+            let job = jobs
+                .recv_timeout(Duration::from_secs(5))
+                .expect("UI should receive the request");
+            assert_eq!(job.request.action, "state");
+            job.reply
+                .send(Response::with_state("ok", json!({ "photos": 3 })))
+                .expect("reply to the control client");
+        });
+
+        let response = send(&path, "state", Value::Null).expect("send request");
+        assert!(response.ok);
+        assert_eq!(response.state.unwrap()["photos"], 3);
+        ui.join().expect("UI thread");
+
+        remove_discovery(&path);
+        assert!(!path.exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn discovery_file_is_owner_only() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let path = test_path("permissions");
+        let (_discovery, _jobs) = start_server(&path).expect("start control server");
+        let _ = discovery_after_start(&path);
+
+        let mode = fs::metadata(&path)
+            .expect("discovery metadata")
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600, "discovery file mode was {mode:o}");
+
+        remove_discovery(&path);
+    }
+}

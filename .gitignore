@@ -8,3 +8,5 @@
 .env
 .idea/
 .vscode/
+**/tests/snapshots/**/*.diff.png
+**/tests/snapshots/**/*.new.png
