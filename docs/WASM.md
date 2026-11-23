@@ -36,5 +36,5 @@ Bluetooth/local-bridge, browser File APIs, browser timers, and a WASM-friendly
 event loop. The protocol and editing/preview crates are already reusable.
 
 If you know of a BLE GATT data path on any Liene/Hannto model, please open a
-[Printer support report](https://github.com/bydavy/liene-printer-desktop-app/issues/new?template=printer-support.md);
+[Printer support report](https://github.com/bydavy/open-liene-printer-desktop/issues/new?template=printer-support.md);
 that is the only route to a pure browser app.

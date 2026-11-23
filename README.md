@@ -1,7 +1,7 @@
-# Liene Desktop App (Unofficial)
+# Open Liene (Unofficial)
 
-[![CI](https://github.com/bydavy/liene-printer-desktop-app/actions/workflows/ci.yml/badge.svg)](https://github.com/bydavy/liene-printer-desktop-app/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/bydavy/liene-printer-desktop-app?display_name=tag)](https://github.com/bydavy/liene-printer-desktop-app/releases/latest)
+[![CI](https://github.com/bydavy/open-liene-printer-desktop/actions/workflows/ci.yml/badge.svg)](https://github.com/bydavy/open-liene-printer-desktop/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/bydavy/open-liene-printer-desktop?display_name=tag)](https://github.com/bydavy/open-liene-printer-desktop/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20me-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/davyleggieri)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support%20me-ffdd00?logo=buymeacoffee&logoColor=black)](https://www.buymeacoffee.com/davyleggieri)
@@ -56,8 +56,7 @@ status is **untested**.
 | Liene Photo Printer | `fennel` | 3005 | Untested; help wanted |
 | Portable Photo Printer | `kiwi` | 1021 | Untested; help wanted |
 
-Other Hannto/Liene models may share the protocol. The app is named **Liene
-Desktop App**; the N200 Pro is the tested model. Testers with any of these
+Other Hannto/Liene models may share the protocol. The app is called **Open Liene**; the N200 Pro is the tested model. Testers with any of these
 printers are very welcome — see below.
 
 ## WASM / browser
@@ -100,7 +99,7 @@ in the table above need testers, including Linux and Windows users with an
 N200 Pro.
 
 If you can help, open a
-[Printer support report](https://github.com/bydavy/liene-printer-desktop-app/issues/new?template=printer-support.md)
+[Printer support report](https://github.com/bydavy/open-liene-printer-desktop/issues/new?template=printer-support.md)
 with the model, PID, firmware, OS, what works (status/info/print), and a
 `--debug` log. Even a "cannot connect" report is useful. Please remove MAC
 addresses, serial numbers, and personal file paths first.
@@ -118,8 +117,8 @@ addresses, serial numbers, and personal file paths first.
 ### macOS (tested)
 
 Download the latest DMG from
-[Releases](https://github.com/bydavy/liene-printer-desktop-app/releases/latest), open it,
-and drag **Liene Desktop App** to Applications.
+[Releases](https://github.com/bydavy/open-liene-printer-desktop/releases/latest), open it,
+and drag **Open Liene** to Applications.
 
 The release is **ad-hoc signed, not notarized**. On first launch, either:
 
@@ -128,7 +127,7 @@ The release is **ad-hoc signed, not notarized**. On first launch, either:
 - clear the quarantine flag once:
 
   ```sh
-  xattr -dr com.apple.quarantine "/Applications/Liene Desktop App.app"
+  xattr -dr com.apple.quarantine "/Applications/Open Liene.app"
   ```
 
 Then allow Bluetooth access when macOS asks. Pair the printer once in
@@ -142,7 +141,7 @@ retries automatically.
 
 ### Linux (untested)
 
-A Linux x86_64 build is included in [Releases](https://github.com/bydavy/liene-printer-desktop-app/releases/latest)
+A Linux x86_64 build is included in [Releases](https://github.com/bydavy/open-liene-printer-desktop/releases/latest)
 as an **untested** asset, is produced by CI as an untested artifact (GitHub
 Actions → CI → `linux-untested`), or can be built locally:
 
@@ -150,8 +149,8 @@ Actions → CI → `linux-untested`), or can be built locally:
 # BlueZ is used for discovery; `sdptool` is optional.
 # The transport falls back to the printer's known SPP RFCOMM channel 1.
 cargo build --release -p liene-cli -p liene-gui
-cp target/release/liene-cli target/release/liene-desktop-app /some/folder/
-cd /some/folder && ./liene-desktop-app
+cp target/release/open-liene-cli target/release/open-desktop /some/folder/
+cd /some/folder && ./open-desktop
 ```
 
 Pair first with BlueZ:
@@ -162,20 +161,20 @@ bluetoothctl trust <MAC>
 bluetoothctl connect <MAC>
 ```
 
-The GUI looks for `liene-cli` next to its own executable. If you use the
+The GUI looks for `open-liene-cli` next to its own executable. If you use the
 tarball, `./run.sh` does this for you. Linux support is **untested**; please
 report results.
 
 ### Windows (untested)
 
-A Windows x86_64 build is included in [Releases](https://github.com/bydavy/liene-printer-desktop-app/releases/latest)
+A Windows x86_64 build is included in [Releases](https://github.com/bydavy/open-liene-printer-desktop/releases/latest)
 as an **untested** asset, is produced by CI as an untested artifact (GitHub
 Actions → CI → `windows-untested`), or built with:
 
 ```powershell
 cargo build --release -p liene-cli -p liene-gui
-# keep liene-cli.exe and liene-desktop-app.exe together
-.\target\release\liene-desktop-app.exe
+# keep open-liene-cli.exe and open-desktop.exe together
+.\target\release\open-desktop.exe
 ```
 
 Pair the printer in **Settings → Bluetooth & devices → Add device** first.
@@ -221,45 +220,45 @@ The app auto-connects to the paired printer and provides:
 
 ```sh
 # List paired devices, or scan for nearby devices
-liene-cli devices --scan
+open-liene-cli devices --scan
 
 # Pair by MAC (or use System Settings / the official app)
-liene-cli pair 11:22:33:44:55:66
+open-liene-cli pair 11:22:33:44:55:66
 
 # Inspect BLE advertisements and GATT services (diagnostic)
-liene-cli ble --connect
+open-liene-cli ble --connect
 
 # Query status / device information
-liene-cli status
-liene-cli info
+open-liene-cli status
+open-liene-cli info
 
 # Print a photo (fit into 1200x1800 with white borders by default)
-liene-cli print photo.jpg --copies 1
+open-liene-cli print photo.jpg --copies 1
 
 # Rotate/crop while printing
-liene-cli print photo.jpg --rotate 90 --crop 0.1,0.2,0.6,0.5
+open-liene-cli print photo.jpg --rotate 90 --crop 0.1,0.2,0.6,0.5
 
 # Render the exact edited JPEG without printing
-liene-cli prepare photo.jpg --out prepared.jpg --rotate 90 \
+open-liene-cli prepare photo.jpg --out prepared.jpg --rotate 90 \
     --crop 0.1,0.2,0.6,0.5
 
 # Fill the page instead of adding white borders
-liene-cli print photo.jpg --fit cover
+open-liene-cli print photo.jpg --fit cover
 
 # Don't block until the print finishes
-liene-cli print photo.jpg --no-wait
+open-liene-cli print photo.jpg --no-wait
 
 # Jobs and error recovery
-liene-cli jobs
-liene-cli job 20
-liene-cli resume
-liene-cli cancel 20
+open-liene-cli jobs
+open-liene-cli job 20
+open-liene-cli resume
+open-liene-cli cancel 20
 
 # Raw protocol probe
-liene-cli raw get-prop '["printer-state","printer-sub-state","media-size"]'
+open-liene-cli raw get-prop '["printer-state","printer-sub-state","media-size"]'
 ```
 
-Add `--debug` to dump frame headers and JSON traffic. `liene-cli serve` is a
+Add `--debug` to dump frame headers and JSON traffic. `open-liene-cli serve` is a
 hidden JSON-line daemon used by the GUI; it is not normally run by hand.
 
 ## How it works
@@ -287,21 +286,21 @@ cargo test
 ./scripts/bundle-macos.sh --universal
 
 # Compressed DMG with an /Applications shortcut
-VERSION=0.4.0 ./scripts/make-dmg.sh
+VERSION=0.5.0 ./scripts/make-dmg.sh
 ```
 
 Outputs:
 
-- `target/release/liene-cli` — CLI
-- `target/release/liene-desktop-app` — GUI
-- `target/release/liene-control` — authenticated UI control CLI for testing
-- `dist/Liene Desktop App.app`
-- `dist/Liene-Desktop-App-<version>-macos.dmg` and `.sha256`
+- `target/release/open-liene-cli` — CLI
+- `target/release/open-desktop` — GUI
+- `target/release/open-liene-control` — authenticated UI control CLI for testing
+- `dist/Open Liene.app`
+- `dist/Open-Liene-<version>-macos.dmg` and `.sha256`
 
 Linux/Windows packages (untested):
 
 ```sh
-VERSION=0.4.0 ./scripts/bundle-linux.sh          # on Linux
+VERSION=0.5.0 ./scripts/bundle-linux.sh          # on Linux
 pwsh ./scripts/bundle-windows.ps1                # on Windows; VERSION env optional
 ```
 
@@ -309,10 +308,10 @@ CI also publishes `linux-untested` and `windows-untested` artifacts on every
 run.
 
 Run the app directly with `cargo run -p liene-gui` or
-`open "dist/Liene Desktop App.app"`.
+`open "dist/Open Liene.app"`.
 
 For deterministic UI tests and screenshots, start the app with `--control` and
-use the `liene-control` CLI. It can load images/collages, select layouts, toggle
+use the `open-liene-control` CLI. It can load images/collages, select layouts, toggle
 borders, randomize, set per-photo zoom/pan/rotation, replace photos, take
 screenshots, and print. The channel is opt-in, authenticated, and loopback-only.
 See [docs/CONTROL.md](docs/CONTROL.md).
@@ -363,9 +362,9 @@ and changelog first:
 
 ```sh
 # edit Cargo.toml [workspace.package] version and CHANGELOG.md
-git commit -am "Release v0.4.0"
-git tag v0.4.0
-git push origin main v0.4.0
+git commit -am "Release v0.5.0"
+git tag v0.5.0
+git push origin main v0.5.0
 ```
 
 It can also be run manually (`workflow_dispatch`) to produce a CI artifact.
@@ -399,7 +398,7 @@ in the workflow if you have an Apple Developer account.
 - **“App is damaged”**: use right-click → Open or the `xattr` command above;
   do not disable Gatekeeper globally.
 - **Paper/ribbon alerts**: load paper/ribbon, then use Resume printer in the
-  app or `liene-cli resume`.
+  app or `open-liene-cli resume`.
 - **Debugging**: run the CLI with `--debug`, or open the app's Log panel.
   Include the printer model, firmware, macOS version, and the log when filing
   an issue.

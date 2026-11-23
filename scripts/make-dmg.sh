@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Package dist/Liene Desktop App.app into a compressed DMG with an
+# Package dist/Open Liene.app into a compressed DMG with an
 # /Applications shortcut for drag-and-drop installation.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${VERSION:-0.4.0}"
+VERSION="${VERSION:-0.5.0}"
 VERSION="${VERSION#v}"
 
-APP="$ROOT/dist/Liene Desktop App.app"
+APP="$ROOT/dist/Open Liene.app"
 if [[ ! -d "$APP" ]]; then
     echo "error: $APP not found; run scripts/bundle-macos.sh first" >&2
     exit 1
@@ -18,13 +18,13 @@ fi
 STAGE="$ROOT/build/dmg"
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
-ditto "$APP" "$STAGE/Liene Desktop App.app"
+ditto "$APP" "$STAGE/Open Liene.app"
 ln -s /Applications "$STAGE/Applications"
 
-DMG="$ROOT/dist/Liene-Desktop-App-${VERSION}-macos.dmg"
+DMG="$ROOT/dist/Open-Liene-${VERSION}-macos.dmg"
 rm -f "$DMG"
 hdiutil create \
-    -volname "Liene Desktop App" \
+    -volname "Open Liene" \
     -srcfolder "$STAGE" \
     -ov \
     -format UDZO \

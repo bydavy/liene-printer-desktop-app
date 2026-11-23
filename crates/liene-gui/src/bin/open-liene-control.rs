@@ -7,8 +7,8 @@ use serde_json::{json, Value};
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "liene-control",
-    about = "Drive a running Liene Desktop App window over its local control channel"
+    name = "open-liene-control",
+    about = "Drive a running Open Liene window over its local control channel"
 )]
 struct Cli {
     /// Control discovery file (defaults to the app's temp file).

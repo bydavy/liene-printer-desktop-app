@@ -17,7 +17,7 @@ const PRINT_HEIGHT: u32 = 1800;
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "liene-cli",
+    name = "open-liene-cli",
     version,
     about = "Print photos on Liene/Hannto photo printers over Bluetooth"
 )]

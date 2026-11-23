@@ -1,7 +1,7 @@
 //! Authenticated loopback control channel for the desktop UI.
 //!
 //! The GUI only starts this server with `--control`. A discovery file contains
-//! the ephemeral port and a per-process token; the `liene-control` CLI uses it
+//! the ephemeral port and a per-process token; the `open-liene-control` CLI uses it
 //! to drive the same actions as the UI and to take screenshots.
 
 use std::fs;
@@ -213,7 +213,7 @@ mod tests {
 
     fn test_path(name: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!(
-            "liene-control-test-{}-{name}.json",
+            "open-liene-control-test-{}-{name}.json",
             std::process::id()
         ));
         let _ = fs::remove_file(&path);

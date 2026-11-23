@@ -8,12 +8,12 @@ repository.workspace = true
 description = "Desktop app for Liene/Hannto photo printers"
 
 [[bin]]
-name = "liene-desktop-app"
+name = "open-desktop"
 path = "src/main.rs"
 
 [[bin]]
-name = "liene-control"
-path = "src/bin/liene-control.rs"
+name = "open-liene-control"
+path = "src/bin/open-liene-control.rs"
 
 [dependencies]
 anyhow = "1"

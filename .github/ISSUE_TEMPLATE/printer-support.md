@@ -17,7 +17,7 @@ labels: help wanted
 
 **What fails?** Include the error text:
 
-**`liene-cli info` or `status` output:**
+**`open-liene-cli info` or `status` output:**
 
 **`--debug` log** (a few frames around the failure):
 

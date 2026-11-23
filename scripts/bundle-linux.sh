@@ -9,25 +9,25 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${VERSION:-0.4.0}"
+VERSION="${VERSION:-0.5.0}"
 VERSION="${VERSION#v}"
 
 cargo build --release --locked -p liene-cli -p liene-gui
 
-NAME="Liene-Desktop-App-${VERSION}-linux-x86_64"
+NAME="Open-Liene-${VERSION}-linux-x86_64"
 STAGE="$ROOT/dist/$NAME"
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
 
-cp target/release/liene-cli target/release/liene-desktop-app "$STAGE/"
+cp target/release/open-liene-cli target/release/open-desktop "$STAGE/"
 cp README.md LICENSE "$STAGE/"
-cp assets/AppIcon.png "$STAGE/liene-desktop-app.png"
+cp assets/AppIcon.png "$STAGE/open-desktop.png"
 
 cat > "$STAGE/run.sh" <<'RUN'
 #!/usr/bin/env bash
 # Keep the helper next to the GUI binary.
 cd "$(dirname "$0")"
-exec ./liene-desktop-app "$@"
+exec ./open-desktop "$@"
 RUN
 chmod +x "$STAGE/run.sh"
 
@@ -41,12 +41,12 @@ not been verified on real N200 Pro hardware.
      bluetoothctl --timeout 30 pair <MAC>
      bluetoothctl trust <MAC>
      bluetoothctl connect <MAC>
-2. Keep liene-cli and liene-desktop-app in the same directory.
-3. Run ./run.sh (or ./liene-desktop-app).
+2. Keep open-liene-cli and open-desktop in the same directory.
+3. Run ./run.sh (or ./open-desktop).
 
 If it works, please open an issue with your distro, BlueZ version, printer
-model/firmware, and a `liene-cli --debug status` log. If it fails, that log is
-equally useful. Help wanted: https://github.com/bydavy/liene-printer-desktop-app/issues
+model/firmware, and a `open-liene-cli --debug status` log. If it fails, that log is
+equally useful. Help wanted: https://github.com/bydavy/open-liene-printer-desktop/issues
 TXT
 
 tar -C "$ROOT/dist" -czf "$ROOT/dist/$NAME.tar.gz" "$NAME"

@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Rename the desktop app to **Open Liene**. The window title, macOS app bundle
+  and disk image, Linux/Windows packages, and release assets use the new name.
+- Rename the binaries to `open-desktop`, `open-liene-cli`, and
+  `open-liene-control`. The workspace crates keep their names, and the GUI
+  launches `open-liene-cli serve` as its Bluetooth helper.
+
 ## [0.4.0] - 2026-11-22
 
 ### Added

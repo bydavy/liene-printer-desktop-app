@@ -3,18 +3,18 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>io.github.bydavy.liene-printer-desktop-app.helper</string>
+    <string>io.github.bydavy.open-liene-printer-desktop.helper</string>
     <key>CFBundleName</key>
-    <string>Liene Desktop Helper</string>
+    <string>Open Liene Helper</string>
     <key>CFBundleDisplayName</key>
-    <string>Liene Desktop Helper</string>
+    <string>Open Liene Helper</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.3.2</string>
+    <string>0.5.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
-    <string>Liene Desktop App needs Bluetooth access to discover and print to your photo printer.</string>
+    <string>Open Liene needs Bluetooth access to discover and print to your photo printer.</string>
 </dict>
 </plist>

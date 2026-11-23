@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve the Liene Desktop App client.
+Thanks for helping improve the Open Liene client.
 
 ## Good first contributions
 
@@ -26,7 +26,7 @@ are produced by:
 
 ```sh
 ./scripts/bundle-macos.sh
-VERSION=0.3.2 ./scripts/make-dmg.sh
+VERSION=0.5.0 ./scripts/make-dmg.sh
 ```
 
 Hardware testing requires the printer; unit tests must pass without it.
@@ -46,7 +46,7 @@ Hardware testing requires the printer; unit tests must pass without it.
 
 Include:
 
-- Printer model and firmware version (`liene-cli info`).
+- Printer model and firmware version (`open-liene-cli info`).
 - macOS version and app version/commit.
 - Steps to reproduce.
 - Relevant log output (`--debug` or the app's Log panel).

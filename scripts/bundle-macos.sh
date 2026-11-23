@@ -4,7 +4,7 @@
 # Host build:      ./scripts/bundle-macos.sh
 # Universal build: ./scripts/bundle-macos.sh --universal
 #
-# VERSION=0.4.0 can be supplied by the release workflow.
+# VERSION=0.5.0 can be supplied by the release workflow.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,7 +15,7 @@ if [[ "${1:-}" == "--universal" ]]; then
     UNIVERSAL=1
 fi
 
-VERSION="${VERSION:-0.4.0}"
+VERSION="${VERSION:-0.5.0}"
 VERSION="${VERSION#v}"
 
 BIN_DIR="$ROOT/target/liene-bundle"
@@ -44,28 +44,28 @@ if [[ "$UNIVERSAL" == "1" ]]; then
     "$CARGO_BIN" build --release --locked --target x86_64-apple-darwin -p liene-cli -p liene-gui
 
     lipo -create \
-        -output "$BIN_DIR/liene-desktop-app" \
-        "target/aarch64-apple-darwin/release/liene-desktop-app" \
-        "target/x86_64-apple-darwin/release/liene-desktop-app"
+        -output "$BIN_DIR/open-desktop" \
+        "target/aarch64-apple-darwin/release/open-desktop" \
+        "target/x86_64-apple-darwin/release/open-desktop"
     lipo -create \
-        -output "$BIN_DIR/liene-cli" \
-        "target/aarch64-apple-darwin/release/liene-cli" \
-        "target/x86_64-apple-darwin/release/liene-cli"
+        -output "$BIN_DIR/open-liene-cli" \
+        "target/aarch64-apple-darwin/release/open-liene-cli" \
+        "target/x86_64-apple-darwin/release/open-liene-cli"
 else
     CARGO_BIN="${CARGO:-cargo}"
     "$CARGO_BIN" build --release --locked -p liene-cli -p liene-gui
-    cp "target/release/liene-desktop-app" "$BIN_DIR/liene-desktop-app"
-    cp "target/release/liene-cli" "$BIN_DIR/liene-cli"
+    cp "target/release/open-desktop" "$BIN_DIR/open-desktop"
+    cp "target/release/open-liene-cli" "$BIN_DIR/open-liene-cli"
 fi
 
-APP="$ROOT/dist/Liene Desktop App.app"
+APP="$ROOT/dist/Open Liene.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-cp "$BIN_DIR/liene-desktop-app" "$APP/Contents/MacOS/liene-desktop-app"
+cp "$BIN_DIR/open-desktop" "$APP/Contents/MacOS/open-desktop"
 # The GUI spawns this helper so IOBluetooth lives in a process whose main run
 # loop services its callbacks.
-cp "$BIN_DIR/liene-cli" "$APP/Contents/MacOS/liene-cli"
+cp "$BIN_DIR/open-liene-cli" "$APP/Contents/MacOS/open-liene-cli"
 
 if [[ -f "$ROOT/assets/AppIcon.icns" ]]; then
     cp "$ROOT/assets/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
@@ -79,15 +79,15 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>liene-desktop-app</string>
+    <string>open-desktop</string>
     <key>CFBundleIdentifier</key>
-    <string>io.github.bydavy.liene-printer-desktop-app</string>
+    <string>io.github.bydavy.open-liene-printer-desktop</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Liene Desktop App</string>
+    <string>Open Liene</string>
     <key>CFBundleDisplayName</key>
-    <string>Liene Desktop App</string>
+    <string>Open Liene</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -103,7 +103,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
-    <string>Liene Desktop App needs Bluetooth access to discover and print to your photo printer.</string>
+    <string>Open Liene needs Bluetooth access to discover and print to your photo printer.</string>
     <key>NSHumanReadableCopyright</key>
     <string>MIT-licensed unofficial client; not affiliated with Liene or Hannto.</string>
     <key>CFBundleIconFile</key>
@@ -114,7 +114,7 @@ PLIST
 
 # Ad-hoc signature: enough for local use. Distribution to other Macs needs a
 # Developer ID certificate and notarization.
-codesign --force --sign - "$APP/Contents/MacOS/liene-cli" >/dev/null
+codesign --force --sign - "$APP/Contents/MacOS/open-liene-cli" >/dev/null
 codesign --force --deep --sign - "$APP" >/dev/null
 
 echo "Built: $APP (version $VERSION)"

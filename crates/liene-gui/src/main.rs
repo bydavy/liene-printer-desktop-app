@@ -115,11 +115,11 @@ fn main() -> eframe::Result<()> {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1040.0, 760.0])
             .with_min_inner_size([960.0, 600.0])
-            .with_title("Liene Desktop App"),
+            .with_title("Open Liene"),
         ..Default::default()
     };
     eframe::run_native(
-        "Liene Desktop App",
+        "Open Liene",
         options,
         Box::new(move |cc| Ok(Box::new(LieneApp::new(cc, control_enabled)))),
     )
@@ -369,7 +369,7 @@ impl LieneApp {
                 Fit::Cover
             };
         }
-        app.push_log("Liene Desktop App ready.");
+        app.push_log("Open Liene ready.");
         app
     }
 
@@ -615,7 +615,7 @@ impl LieneApp {
         let palette = Palette::of(ui);
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
-                ui.label(RichText::new("Liene Desktop App").size(24.0).strong());
+                ui.label(RichText::new("Open Liene").size(24.0).strong());
                 ui.label(
                     RichText::new("Liene / Hannto photo printer")
                         .color(palette.muted)
@@ -2678,7 +2678,7 @@ fn locate_helper() -> anyhow::Result<PathBuf> {
     let dir = exe
         .parent()
         .ok_or_else(|| anyhow::anyhow!("executable has no parent directory"))?;
-    let name = format!("liene-cli{}", std::env::consts::EXE_SUFFIX);
+    let name = format!("open-liene-cli{}", std::env::consts::EXE_SUFFIX);
     let candidate = dir.join(&name);
     if candidate.is_file() {
         return Ok(candidate);
