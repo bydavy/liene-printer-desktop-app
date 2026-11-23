@@ -4,7 +4,7 @@
 # Host build:      ./scripts/bundle-macos.sh
 # Universal build: ./scripts/bundle-macos.sh --universal
 #
-# VERSION=0.3.2 can be supplied by the release workflow.
+# VERSION=0.4.0 can be supplied by the release workflow.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,7 +15,7 @@ if [[ "${1:-}" == "--universal" ]]; then
     UNIVERSAL=1
 fi
 
-VERSION="${VERSION:-0.3.2}"
+VERSION="${VERSION:-0.4.0}"
 VERSION="${VERSION#v}"
 
 BIN_DIR="$ROOT/target/liene-bundle"
@@ -48,14 +48,14 @@ if [[ "$UNIVERSAL" == "1" ]]; then
         "target/aarch64-apple-darwin/release/liene-desktop-app" \
         "target/x86_64-apple-darwin/release/liene-desktop-app"
     lipo -create \
-        -output "$BIN_DIR/liene-n200" \
-        "target/aarch64-apple-darwin/release/liene-n200" \
-        "target/x86_64-apple-darwin/release/liene-n200"
+        -output "$BIN_DIR/liene-cli" \
+        "target/aarch64-apple-darwin/release/liene-cli" \
+        "target/x86_64-apple-darwin/release/liene-cli"
 else
     CARGO_BIN="${CARGO:-cargo}"
     "$CARGO_BIN" build --release --locked -p liene-cli -p liene-gui
     cp "target/release/liene-desktop-app" "$BIN_DIR/liene-desktop-app"
-    cp "target/release/liene-n200" "$BIN_DIR/liene-n200"
+    cp "target/release/liene-cli" "$BIN_DIR/liene-cli"
 fi
 
 APP="$ROOT/dist/Liene Desktop App.app"
@@ -65,7 +65,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/liene-desktop-app" "$APP/Contents/MacOS/liene-desktop-app"
 # The GUI spawns this helper so IOBluetooth lives in a process whose main run
 # loop services its callbacks.
-cp "$BIN_DIR/liene-n200" "$APP/Contents/MacOS/liene-n200"
+cp "$BIN_DIR/liene-cli" "$APP/Contents/MacOS/liene-cli"
 
 if [[ -f "$ROOT/assets/AppIcon.icns" ]]; then
     cp "$ROOT/assets/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
@@ -114,7 +114,7 @@ PLIST
 
 # Ad-hoc signature: enough for local use. Distribution to other Macs needs a
 # Developer ID certificate and notarization.
-codesign --force --sign - "$APP/Contents/MacOS/liene-n200" >/dev/null
+codesign --force --sign - "$APP/Contents/MacOS/liene-cli" >/dev/null
 codesign --force --deep --sign - "$APP" >/dev/null
 
 echo "Built: $APP (version $VERSION)"

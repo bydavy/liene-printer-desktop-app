@@ -2678,7 +2678,7 @@ fn locate_helper() -> anyhow::Result<PathBuf> {
     let dir = exe
         .parent()
         .ok_or_else(|| anyhow::anyhow!("executable has no parent directory"))?;
-    let name = format!("liene-n200{}", std::env::consts::EXE_SUFFIX);
+    let name = format!("liene-cli{}", std::env::consts::EXE_SUFFIX);
     let candidate = dir.join(&name);
     if candidate.is_file() {
         return Ok(candidate);

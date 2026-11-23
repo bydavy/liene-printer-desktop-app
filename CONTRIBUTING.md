@@ -46,7 +46,7 @@ Hardware testing requires the printer; unit tests must pass without it.
 
 Include:
 
-- Printer model and firmware version (`liene-n200 info`).
+- Printer model and firmware version (`liene-cli info`).
 - macOS version and app version/commit.
 - Steps to reproduce.
 - Relevant log output (`--debug` or the app's Log panel).

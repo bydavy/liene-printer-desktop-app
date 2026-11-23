@@ -5,7 +5,7 @@ title: ""
 labels: bug
 ---
 
-**Printer model and firmware** (run `liene-n200 info`):
+**Printer model and firmware** (run `liene-cli info`):
 
 **macOS version and Mac model**:
 
@@ -17,7 +17,7 @@ labels: bug
 
 **Expected behavior:**
 
-**Logs** (`liene-n200 --debug ...`, or the app's Log panel):
+**Logs** (`liene-cli --debug ...`, or the app's Log panel):
 
 **Photo paper / ribbon / battery state, if print-related:**
 

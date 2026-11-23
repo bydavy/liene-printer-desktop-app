@@ -2074,7 +2074,7 @@ dependencies = [
 
 [[package]]
 name = "liene-cli"
-version = "0.3.3"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2087,7 +2087,7 @@ dependencies = [
 
 [[package]]
 name = "liene-client"
-version = "0.3.3"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "futures",
@@ -2105,7 +2105,7 @@ dependencies = [
 
 [[package]]
 name = "liene-gui"
-version = "0.3.3"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -2120,7 +2120,7 @@ dependencies = [
 
 [[package]]
 name = "liene-protocol"
-version = "0.3.3"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",

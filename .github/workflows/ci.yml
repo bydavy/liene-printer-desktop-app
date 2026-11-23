@@ -112,5 +112,5 @@ jobs:
       - name: Verify universal binaries
         run: |
           lipo -info "dist/Liene Desktop App.app/Contents/MacOS/liene-desktop-app"
-          lipo -info "dist/Liene Desktop App.app/Contents/MacOS/liene-n200"
+          lipo -info "dist/Liene Desktop App.app/Contents/MacOS/liene-cli"
           codesign --verify --deep --strict "dist/Liene Desktop App.app"

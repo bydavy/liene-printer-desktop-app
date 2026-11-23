@@ -150,7 +150,7 @@ Actions → CI → `linux-untested`), or can be built locally:
 # BlueZ is used for discovery; `sdptool` is optional.
 # The transport falls back to the printer's known SPP RFCOMM channel 1.
 cargo build --release -p liene-cli -p liene-gui
-cp target/release/liene-n200 target/release/liene-desktop-app /some/folder/
+cp target/release/liene-cli target/release/liene-desktop-app /some/folder/
 cd /some/folder && ./liene-desktop-app
 ```
 
@@ -162,7 +162,7 @@ bluetoothctl trust <MAC>
 bluetoothctl connect <MAC>
 ```
 
-The GUI looks for `liene-n200` next to its own executable. If you use the
+The GUI looks for `liene-cli` next to its own executable. If you use the
 tarball, `./run.sh` does this for you. Linux support is **untested**; please
 report results.
 
@@ -174,7 +174,7 @@ Actions → CI → `windows-untested`), or built with:
 
 ```powershell
 cargo build --release -p liene-cli -p liene-gui
-# keep liene-n200.exe and liene-desktop-app.exe together
+# keep liene-cli.exe and liene-desktop-app.exe together
 .\target\release\liene-desktop-app.exe
 ```
 
@@ -221,45 +221,45 @@ The app auto-connects to the paired printer and provides:
 
 ```sh
 # List paired devices, or scan for nearby devices
-liene-n200 devices --scan
+liene-cli devices --scan
 
 # Pair by MAC (or use System Settings / the official app)
-liene-n200 pair 11:22:33:44:55:66
+liene-cli pair 11:22:33:44:55:66
 
 # Inspect BLE advertisements and GATT services (diagnostic)
-liene-n200 ble --connect
+liene-cli ble --connect
 
 # Query status / device information
-liene-n200 status
-liene-n200 info
+liene-cli status
+liene-cli info
 
 # Print a photo (fit into 1200x1800 with white borders by default)
-liene-n200 print photo.jpg --copies 1
+liene-cli print photo.jpg --copies 1
 
 # Rotate/crop while printing
-liene-n200 print photo.jpg --rotate 90 --crop 0.1,0.2,0.6,0.5
+liene-cli print photo.jpg --rotate 90 --crop 0.1,0.2,0.6,0.5
 
 # Render the exact edited JPEG without printing
-liene-n200 prepare photo.jpg --out prepared.jpg --rotate 90 \
+liene-cli prepare photo.jpg --out prepared.jpg --rotate 90 \
     --crop 0.1,0.2,0.6,0.5
 
 # Fill the page instead of adding white borders
-liene-n200 print photo.jpg --fit cover
+liene-cli print photo.jpg --fit cover
 
 # Don't block until the print finishes
-liene-n200 print photo.jpg --no-wait
+liene-cli print photo.jpg --no-wait
 
 # Jobs and error recovery
-liene-n200 jobs
-liene-n200 job 20
-liene-n200 resume
-liene-n200 cancel 20
+liene-cli jobs
+liene-cli job 20
+liene-cli resume
+liene-cli cancel 20
 
 # Raw protocol probe
-liene-n200 raw get-prop '["printer-state","printer-sub-state","media-size"]'
+liene-cli raw get-prop '["printer-state","printer-sub-state","media-size"]'
 ```
 
-Add `--debug` to dump frame headers and JSON traffic. `liene-n200 serve` is a
+Add `--debug` to dump frame headers and JSON traffic. `liene-cli serve` is a
 hidden JSON-line daemon used by the GUI; it is not normally run by hand.
 
 ## How it works
@@ -287,12 +287,12 @@ cargo test
 ./scripts/bundle-macos.sh --universal
 
 # Compressed DMG with an /Applications shortcut
-VERSION=0.3.3 ./scripts/make-dmg.sh
+VERSION=0.4.0 ./scripts/make-dmg.sh
 ```
 
 Outputs:
 
-- `target/release/liene-n200` — CLI
+- `target/release/liene-cli` — CLI
 - `target/release/liene-desktop-app` — GUI
 - `target/release/liene-control` — authenticated UI control CLI for testing
 - `dist/Liene Desktop App.app`
@@ -301,7 +301,7 @@ Outputs:
 Linux/Windows packages (untested):
 
 ```sh
-VERSION=0.3.3 ./scripts/bundle-linux.sh          # on Linux
+VERSION=0.4.0 ./scripts/bundle-linux.sh          # on Linux
 pwsh ./scripts/bundle-windows.ps1                # on Windows; VERSION env optional
 ```
 
@@ -363,9 +363,9 @@ and changelog first:
 
 ```sh
 # edit Cargo.toml [workspace.package] version and CHANGELOG.md
-git commit -am "Release v0.3.3"
-git tag v0.3.3
-git push origin main v0.3.3
+git commit -am "Release v0.4.0"
+git tag v0.4.0
+git push origin main v0.4.0
 ```
 
 It can also be run manually (`workflow_dispatch`) to produce a CI artifact.
@@ -399,7 +399,7 @@ in the workflow if you have an Apple Developer account.
 - **“App is damaged”**: use right-click → Open or the `xattr` command above;
   do not disable Gatekeeper globally.
 - **Paper/ribbon alerts**: load paper/ribbon, then use Resume printer in the
-  app or `liene-n200 resume`.
+  app or `liene-cli resume`.
 - **Debugging**: run the CLI with `--debug`, or open the app's Log panel.
   Include the printer model, firmware, macOS version, and the log when filing
   an issue.

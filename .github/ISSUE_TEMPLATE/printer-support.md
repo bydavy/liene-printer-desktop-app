@@ -17,7 +17,7 @@ labels: help wanted
 
 **What fails?** Include the error text:
 
-**`liene-n200 info` or `status` output:**
+**`liene-cli info` or `status` output:**
 
 **`--debug` log** (a few frames around the failure):
 

@@ -9,7 +9,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${VERSION:-0.3.2}"
+VERSION="${VERSION:-0.4.0}"
 VERSION="${VERSION#v}"
 
 cargo build --release --locked -p liene-cli -p liene-gui
@@ -19,7 +19,7 @@ STAGE="$ROOT/dist/$NAME"
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
 
-cp target/release/liene-n200 target/release/liene-desktop-app "$STAGE/"
+cp target/release/liene-cli target/release/liene-desktop-app "$STAGE/"
 cp README.md LICENSE "$STAGE/"
 cp assets/AppIcon.png "$STAGE/liene-desktop-app.png"
 
@@ -41,11 +41,11 @@ not been verified on real N200 Pro hardware.
      bluetoothctl --timeout 30 pair <MAC>
      bluetoothctl trust <MAC>
      bluetoothctl connect <MAC>
-2. Keep liene-n200 and liene-desktop-app in the same directory.
+2. Keep liene-cli and liene-desktop-app in the same directory.
 3. Run ./run.sh (or ./liene-desktop-app).
 
 If it works, please open an issue with your distro, BlueZ version, printer
-model/firmware, and a `liene-n200 --debug status` log. If it fails, that log is
+model/firmware, and a `liene-cli --debug status` log. If it fails, that log is
 equally useful. Help wanted: https://github.com/bydavy/liene-printer-desktop-app/issues
 TXT
 

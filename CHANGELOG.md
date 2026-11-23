@@ -9,6 +9,12 @@
   UI control channel (token rejection, request forwarding, and discovery-file
   permissions).
 
+### Changed
+
+- **Breaking:** the desktop CLI is renamed from `liene-n200` to `liene-cli`,
+  matching the crate and the multi-model support. The GUI launches
+  `liene-cli serve` as its Bluetooth helper. There is no `liene-n200` alias.
+
 ### Fixed
 
 - Printer status dots are painted instead of using `●`/`○` text glyphs, which

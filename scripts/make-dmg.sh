@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${VERSION:-0.3.2}"
+VERSION="${VERSION:-0.4.0}"
 VERSION="${VERSION#v}"
 
 APP="$ROOT/dist/Liene Desktop App.app"

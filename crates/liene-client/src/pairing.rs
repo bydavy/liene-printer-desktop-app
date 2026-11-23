@@ -134,7 +134,7 @@ pub async fn pair_device(_address: &str) -> anyhow::Result<()> {
     #[cfg(target_os = "linux")]
     anyhow::bail!(
         "pairing is handled by BlueZ. Run `bluetoothctl`, then `pair <MAC>`, `trust <MAC>`, \
-         and `connect <MAC>` before using liene-n200."
+         and `connect <MAC>` before using liene-cli."
     );
     #[cfg(target_os = "windows")]
     anyhow::bail!(
